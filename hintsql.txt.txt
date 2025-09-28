@@ -1,0 +1,396 @@
+No_index hint
+=============
+The NO_INDEX hint in PL/SQL is used to prevent the optimizer from using a specific index on a table, forcing it to consider alternative access paths such as a full table scan. This can be useful when an index exists but is not beneficial for a particular query.
+
+Syntax:
+sql
+Copy
+Edit
+SELECT /*+ NO_INDEX(table_name index_name) */ columns 
+FROM table_name 
+WHERE conditions;
+
+When to Use NO_INDEX Hint
+✅ When the optimizer is choosing an index that is not efficient for a specific query.
+✅ When a full table scan is preferable (e.g., when retrieving a large portion of the table).
+✅ When testing query performance by comparing execution plans with and without indexes.
+
+---------------------------------------------------------------------
+PARALLEL hint
+===============
+The PARALLEL hint in Oracle PL/SQL is used to enable parallel query execution, allowing a SQL operation to use multiple CPU threads for better performance.
+It instructs the optimizer to divide the workload into multiple parallel execution servers, improving efficiency, especially for large datasets.
+
+SELECT /*+ PARALLEL(table_name degree_of_parallelism) */ columns 
+FROM table_name 
+WHERE conditions;
+ table_name → The name of the table involved in the query.
+ degree_of_parallelism → The number of parallel threads to be used.
+
+How PARALLEL Works
+-----------------
+* Oracle divides the table into chunks.
+* Multiple parallel execution servers process these chunks simultaneously.
+* Results are merged and returned as a single output.
+
+======================================================================================================================================
+ORDERD HINT
+============
+* The ORDERED hint forces the optimizer to join tables in the order they appear in the FROM clause. Without this hint the optimizer will choose the order in 
+  which to join the tables. It is recommended to use the LEADING hint which is more flexible.
+* Normally, the Oracle optimizer determines the most efficient join order based on statistics and heuristics. However, with the ORDERED hint, you force Oracle to use the exact order in which tables appear in the FROM clause.
+
+How ORDERED Hint Works
+The optimizer normally reorders joins for best performance.
+When you use ORDERED, Oracle follows the given order from left to right.
+It is often used when the optimizer’s default join order is inefficient or causes performance issues.
+
+When to Use ORDERED Hint?
+✅ When you know a specific join order performs better than Oracle’s choice.
+✅ When the optimizer's default plan is inefficient for complex queries.
+✅ When dealing with nested loop joins or hash joins where table order impacts performance.
+✅ When handling manual join optimization in legacy systems.
+
+=========================================================================================================================================
+PURGE in Oracle
+===============
+In Oracle, PURGE is used to permanently delete objects or data from the database. It is commonly used in the following contexts:
+
+1️⃣ PURGE with Recycle Bin (Dropping Tables)
+When you drop a table in Oracle, it goes to the recycle bin instead of being deleted permanently. You can use PURGE to permanently remove it.
+
+🔹 Example 1: Dropping a Table Without Purge (Table Goes to Recycle Bin)
+
+DROP TABLE employees;
+The table is not permanently deleted; it goes to the recycle bin.
+
+You can recover it using FLASHBACK TABLE employees TO BEFORE DROP;.
+
+🔹 Example 2: Permanently Deleting a Table Using PURGE
+
+
+DROP TABLE employees PURGE;
+✅ The table is permanently deleted and cannot be recovered.
+
+🔹 Example 3: Purging the Entire Recycle Bin
+
+
+PURGE RECYCLEBIN;
+✅ This command deletes all dropped objects in your session.
+
+🔹 Example 4: Purging the Whole Database Recycle Bin (Admin Privilege Required)
+
+
+PURGE DBA_RECYCLEBIN;
+✅ Removes all objects from the database-wide recycle bin.
+
+2️⃣ PURGE in Partitioned Tables
+If you have partitioned tables, you can purge specific partitions instead of deleting the entire table.
+
+🔹 Example: Purging a Specific Partition
+
+ALTER TABLE sales TRUNCATE PARTITION jan_sales;
+✅ This removes all data from the "jan_sales" partition without affecting other partitions.
+
+3️⃣ PURGE in Undo Tablespace (Reclaiming Space)
+The Undo Tablespace stores undo information for rollback and flashback operations. If you need to manually free up space, you can purge old undo data.
+
+🔹 Example: Purging Old Undo Data
+
+
+ALTER SYSTEM SET UNDO_RETENTION = 900;
+EXEC DBMS_UNDO_ADV.PURGE; 
+✅ Helps reclaim space by removing old undo segments.
+
+4️⃣ PURGE in Materialized Views
+If you use Materialized Views (MVs), the DBMS_MVIEW.PURGE_LOG procedure helps remove old logs.
+
+🔹 Example: Purging Logs of a Materialized View
+
+EXEC DBMS_MVIEW.PURGE_LOG;
+✅ Deletes old refresh logs to free space.
+
+5️⃣ PURGE in Queues (Oracle Advanced Queuing - AQ)
+Oracle AQ (Advanced Queuing) uses messages that can be purged when no longer needed.
+
+🔹 Example: Purging a Queue Table
+
+
+BEGIN
+  DBMS_AQADM.PURGE_QUEUE_TABLE(
+    queue_table => 'my_queue_table',
+    purge_condition => NULL
+  );
+END;
+/
+✅ Deletes all messages from the queue table.
+
+6️⃣ PURGE in RMAN (Oracle Backup & Recovery)
+If you use RMAN (Recovery Manager) for database backups, you can purge obsolete backups to free space.
+
+🔹 Example: Purging Obsolete Backups
+
+
+RMAN> DELETE OBSOLETE;
+✅ Removes backups no longer needed for recovery.
+
+🔹 Example: Purging All Expired Backups
+
+
+RMAN> DELETE EXPIRED BACKUP;
+✅ Removes expired backups that are no longer valid.
+
+7️⃣ When to Use PURGE?
+✅ When you want to permanently delete objects (tables, partitions, queues).
+✅ When you need to free up space in undo tablespaces, RMAN backups, or materialized views.
+✅ When cleaning up old data from queues and logs.
+
+8️⃣ Summary
+🔹 PURGE permanently removes database objects (tables, partitions, queues, backups).
+🔹 DROP TABLE ... PURGE prevents a table from being recovered.
+🔹 PURGE RECYCLEBIN clears deleted objects from the recycle bin.
+🔹 PURGE DBA_RECYCLEBIN removes all deleted objects from the database.
+🔹 DBMS_AQADM.PURGE_QUEUE_TABLE clears messages from queues.
+🔹 RMAN> DELETE OBSOLETE removes old backups.
+
+
+As a PL/SQL developer with 6 years of experience, I have used the PURGE command in various real-world scenarios. Here are the main use cases and their purposes:
+
+1️⃣ Purging Dropped Tables to Free Space
+Scenario:
+While working on a banking application database, we frequently dropped temporary tables after data processing. However, they remained in the recycle bin, consuming space.
+
+Solution:
+We used DROP TABLE ... PURGE to permanently delete tables and free up storage.
+
+sql
+Copy
+Edit
+DROP TABLE temp_loan_data PURGE;
+✅ Purpose: Prevents the table from going to the recycle bin and frees up storage immediately.
+
+2️⃣ Purging Old Undo Data to Optimize Performance
+Scenario:
+In a high-transaction environment, undo tablespace usage kept increasing, leading to space issues and slow performance.
+
+Solution:
+We used DBMS_UNDO_ADV.PURGE to remove old undo data.
+
+sql
+Copy
+Edit
+EXEC DBMS_UNDO_ADV.PURGE;
+✅ Purpose: Helps reclaim space and improves database performance by removing unnecessary undo records.
+
+3️⃣ Purging Queue Messages to Maintain Queue Size (Oracle AQ)
+Scenario:
+In a credit card transaction processing system, we used Oracle Advanced Queuing (AQ) for handling payment notifications. Over time, the queue table filled up with old messages.
+
+Solution:
+We purged processed messages to avoid queue buildup.
+
+sql
+Copy
+Edit
+BEGIN
+  DBMS_AQADM.PURGE_QUEUE_TABLE(
+    queue_table => 'txn_queue_table',
+    purge_condition => NULL
+  );
+END;
+/
+✅ Purpose: Prevents queue overflow, improves processing speed, and frees up space.
+
+4️⃣ Purging RMAN Backups to Manage Storage
+Scenario:
+While managing a home loan project, old RMAN backups consumed a lot of disk space.
+
+Solution:
+We deleted obsolete and expired backups.
+
+sql
+Copy
+Edit
+RMAN> DELETE OBSOLETE;
+RMAN> DELETE EXPIRED BACKUP;
+✅ Purpose: Cleans up old backups and frees up disk space.
+
+5️⃣ Purging Recycle Bin After Large Data Deletions
+Scenario:
+After migrating data from Citi Bank to Axis Bank, we deleted staging tables but found that disk space was still occupied.
+
+Solution:
+We purged the recycle bin to reclaim space.
+
+sql
+Copy
+Edit
+PURGE RECYCLEBIN;
+✅ Purpose: Ensures that deleted objects do not consume space in the database.
+
+6️⃣ Purging Materialized View Logs to Improve Refresh Speed
+Scenario:
+In sales reporting, we used Materialized Views (MVs) for daily reports. The MV logs grew large and slowed down refresh performance.
+
+Solution:
+We purged old logs periodically.
+
+sql
+Copy
+Edit
+EXEC DBMS_MVIEW.PURGE_LOG;
+✅ Purpose: Speeds up MV refresh and prevents log buildup.
+
+7️⃣ Purging Large Partitions Instead of Dropping the Entire Table
+Scenario:
+For a telecom billing system, we stored customer call logs in a partitioned table (call_logs). Instead of deleting old data manually, we purged specific partitions.
+
+Solution:
+sql
+Copy
+Edit
+ALTER TABLE call_logs TRUNCATE PARTITION jan_2024;
+✅ Purpose: Quickly removes old data while keeping the table structure intact.
+
+🔹 Summary
+In my experience, I used PURGE to:
+✅ Free up space by permanently deleting tables and partitions.
+✅ Optimize performance by purging undo, queue messages, and MV logs.
+✅ Improve backup management by cleaning up old RMAN backups.
+✅ Prevent queue overflow in Oracle AQ-based messaging systems.
+
+=========================================================================================================
+
+select 
+to_char(orderdate,'yyyy') as year,
+to_char(orderdate,'q') as queter,
+sum(amound)
+from orders
+group by to_char(orderdate,'yyyy'),to_char(orderdate,'q')
+order by queter
+
+----------------------------------------------------
+select 
+count(case when gender='male' then 1 end) malecount,
+count(case when gender='female' then 1 end) femalecount
+from emp;
+
+----------------------------------------------------------------------------
+above department avg get more salary person
+
+SELECT emp_id, emp_name, department_id, salary
+FROM employees e
+WHERE salary > (
+    SELECT AVG(salary) 
+    FROM employees 
+    WHERE department_id = e.department_id
+);
+
+-------------------------------------------------------------------------
+select e.empname , m.empname as mgrname
+from emp e left join emp m
+on e.mgr_id=m.empid
+
+SELECT 
+    e.empname AS employee_name, 
+    CASE WHEN e.mgr_id IS NULL THEN 'CEO' ELSE m.empname END AS manager_name
+FROM emp e 
+LEFT JOIN emp m 
+ON e.mgr_id = m.empid
+ORDER BY manager_name DESC, e.empname;
+
+SELECT 
+    e.empname AS employee_name, 
+    COALESCE(m.empname, 'CEO') AS manager_name
+FROM emp e 
+LEFT JOIN emp m 
+ON e.mgr_id = m.empid
+ORDER BY m.empname NULLS FIRST, e.empname;
+
+-------------------------------------------------------------------------------------------------
+
+SELECT e.empid, e.empname 
+FROM emp e
+LEFT JOIN emp m ON e.mgr_id = m.empid
+WHERE m.empid IS NULL;
+
+=======================================================
+
+NOCOPY HINT
+===========
+
+By default, when you pass a parameter to a procedure or function, PL/SQL makes a copy of the parameter (pass-by-value). This copying process can slow down execution, especially when dealing with large collections, records, or objects.
+
+The NOCOPY hint tells PL/SQL to pass parameters by reference instead of making a copy, which improves performance.
+
+How Does It Work?
+1. Default Behavior (Without NOCOPY) - Pass By Value
+PL/SQL creates a copy of the parameter.
+
+If the procedure modifies the parameter, the changes are not reflected outside the procedure until it completes execution.
+
+2. With NOCOPY - Pass By Reference
+Instead of making a copy, PL/SQL passes a pointer (reference) to the original parameter.
+
+This avoids unnecessary copying and improves performance.
+
+EXAMPLE
+PROCEDURE procedure_name(param_name IN OUT NOCOPY datatype);
+
+Key Reasons to Use NOCOPY
+✅ 1. Improves Performance
+
+By default, PL/SQL creates a copy of parameters (pass-by-value), which takes time and memory.
+NOCOPY avoids copying and directly modifies the original data, making execution faster.
+
+✅ 2. Reduces Memory Usage
+
+When passing large collections, CLOBs, or BLOBs, copying consumes extra memory.
+NOCOPY saves memory by passing a reference instead of a full copy.
+
+✅ 3. Faster Execution in Large Data Processing
+If a procedure or function handles millions of records, copying can slow down execution.
+NOCOPY speeds up processing by modifying data in place.
+
+✅ 4. Useful for OUT and IN OUT Parameters
+In IN OUT and OUT parameters, NOCOPY ensures that changes inside the procedure are directly reflected outside, without copying data back and forth.
+
+When to Use NOCOPY?
+✔️ When passing large collections, records, or objects
+✔️ When performance optimization is needed
+✔️ When you don’t need a separate copy of the data
+
+When NOT to Use NOCOPY?
+❌ If the procedure raises an exception, some modifications might still be reflected in the original data, leading to data inconsistency.
+❌ If the parameter should remain unchanged outside the procedure, do not use NOCOPY.
+
+==================================================
+
+Oracle Architecture Flow 🔄
+1️⃣ User sends SQL query from SQL Developer / TOAD / Application.
+2️⃣ Listener sends request to the Oracle Server Process.
+3️⃣ Server Process checks Shared Pool (parsed SQL available or not).
+4️⃣ If not found, Oracle parses SQL and stores execution plan.
+5️⃣ Required data is searched in Buffer Cache (if found, returns it).
+6️⃣ If not found, Oracle reads from Data Files into Buffer Cache.
+7️⃣ DBWR writes modified data from Buffer Cache to Data Files.
+8️⃣ LGWR writes redo logs for transaction recovery.
+9️⃣ If COMMIT, changes are made permanent.
+🔟 If ROLLBACK, changes are undone from UNDO Tablespace.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
