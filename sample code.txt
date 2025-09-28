@@ -1,0 +1,488 @@
+CREATE OR REPLACE PROCEDURE process_employee_salaries 
+IS
+   TYPE emp_id_table IS TABLE OF employees.employee_id%TYPE;
+   emp_ids emp_id_table; -- Collection variable
+
+   CURSOR emp_cursor IS SELECT employee_id FROM employees
+   WHERE department_id = 10;
+
+   errors NUMBER; -- To track the number of errors
+   err_msg VARCHAR2(4000); -- To store error messages
+
+BEGIN
+   OPEN emp_cursor;
+   FETCH emp_cursor BULK COLLECT INTO emp_ids;
+   CLOSE emp_cursor;
+
+   IF emp_ids.COUNT > 0 THEN
+      FORALL i IN emp_ids.FIRST .. emp_ids.LAST SAVE EXCEPTIONS
+         UPDATE employees SET salary = salary * 1.10
+         WHERE employee_id = emp_ids(i);
+   ELSE
+      DBMS_OUTPUT.PUT_LINE('No employees found for the given criteria.');
+   END IF;
+
+EXCEPTION
+   WHEN OTHERS THEN
+      errors := SQL%BULK_EXCEPTIONS.COUNT;
+      DBMS_OUTPUT.PUT_LINE('Number of errors: ' || errors);
+
+      FOR i IN 1 .. errors 
+      LOOP
+         err_msg := 'Error at index ' || SQL%BULK_EXCEPTIONS(i).ERROR_INDEX ||
+                    ': ' || SQLERRM(SQL%BULK_EXCEPTIONS(i).ERROR_CODE);
+         DBMS_OUTPUT.PUT_LINE(err_msg);
+      END LOOP;
+END;
+/
+
+========================================================
+
+declare
+type stu_type is table of student7.first_name%type;
+stu_collect stu_type:=stu_type();
+begin
+stu_collect.extend(5);
+stu_collect(1):='ram';
+stu_collect(2):='ramesh';
+stu_collect(3):='kumar';
+stu_collect(4):='';
+stu_collect(5):='sundar';
+
+forall i in stu_collect.first..stu_collect.last save exceptions
+insert into student7(first_name)values(stu_collect(i));
+
+exception 
+when others then
+for i in 1..sql%bulk_exceptions.count 
+loop
+dbms_output.put_line('total number of error count '||sql%bulk_exceptions.count);
+dbms_output.put_line('error index position '||sql%bulk_exceptions(i).error_index);
+dbms_output.put_line('error code is '||sql%bulk_exceptions(i).error_code);
+dbms_output.put_line('error message is '||sqlerrm);
+dbms_output.put_line('error code is '||sqlerrm(-sql%bulk_exceptions(i).error_code));
+end loop;
+end;
+/
+================================================================
+print all the employess name in using function
+----------------------------------------------
+
+create type type1 is table of varchar2(100);
+
+create function f1 return type1
+is
+c1 type1;
+begin
+select ename bulk collect into c1 from employess;
+return c1;
+exception
+when others then
+dbms_output.put_line('error :' || sqlerrm);
+return null;
+end;
+/
+
+declare
+vname type1;
+begin 
+vame:=f1;
+for i in 1..vname.count
+loop
+dbms_output.put_line(vname(i));
+end loop;
+end;
+/
+
+=============================================================================================================
+create or replace function f1 return sys_refcursor
+is
+vcursor sys_refcursor;
+begin
+open vcursor for select ename from zemp;
+return vcursor;
+end;
+/
+
+
+declare
+c1 sys_refcursor;
+vname zemp.ename%type;
+begin
+c1:=f1;
+loop
+fetch c1 into vname;
+exit when c1%notfound;
+dbms_output.put_line(vname);
+end loop;
+end;
+/
+
+select * from zemp;
+=============================================================================================
+
+create or replace procedure f12 (vcursor out sys_refcursor)
+is
+begin
+open vcursor for select ename from zemp;
+end;
+/
+
+declare
+c1 sys_refcursor;
+vname zemp.ename%type;
+begin
+f12(c1);
+loop
+fetch c1 into vname;
+exit when
+c1%notfound;
+dbms_output.put_line(vname);
+end loop;
+close c1;
+end;
+/
+
+====================================================================
+
+create type type1 is table of varchar2(400);
+
+create or replace procedure p45 (vname out type1)
+is
+begin
+vname := type1();
+select ename bulk collect into vname from zemp;
+end;
+/
+select * from zemp;
+
+declare
+vname type1;
+begin
+p45(vname);
+for i in vname.first..vname.count
+loop
+dbms_output.put_line(vname(i));
+end loop;
+end;
+/
+
+========================================================
+CREATE OR REPLACE PROCEDURE Update_Employee_Status
+IS
+    CURSOR emp_cursor IS SELECT emp_id, salary FROM employees;
+    v_emp_id   employees.emp_id%TYPE;
+    v_salary   employees.salary%TYPE;
+BEGIN
+    OPEN emp_cursor;
+    LOOP
+        FETCH emp_cursor INTO v_emp_id, v_salary;
+        EXIT WHEN emp_cursor%NOTFOUND;
+        IF v_salary > 100000 THEN
+            UPDATE employees SET status = 'Good' WHERE emp_id = v_emp_id;
+        ELSE
+            UPDATE employees SET status = 'Well' WHERE emp_id = v_emp_id;
+       END IF;
+    END LOOP;
+    CLOSE emp_cursor;
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('Employee statuses updated successfully.');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('An error occurred: ' || SQLERRM);
+        ROLLBACK; -- Rollback in case of an error
+        -- Ensure cursor is closed in case of an exceptionk
+        IF emp_cursor%ISOPEN THEN
+            CLOSE emp_cursor;
+        END IF;
+END Update_Employee_Status;
+/
+=========================================================================================================================
+CREATE OR REPLACE PROCEDURE Update_Employee_Status
+IS
+    CURSOR emp_cursor IS SELECT emp_id, salary FROM employees;
+    v_emp_id   employees.emp_id%TYPE;
+    v_salary   employees.salary%TYPE;
+
+BEGIN
+    FOR emp_record IN emp_cursor LOOP
+        IF emp_record.salary > 100000 THEN
+            UPDATE employees SET status = 'Good' WHERE emp_id = emp_record.emp_id;
+        ELSE
+            UPDATE employees SET status = 'Well' WHERE emp_id = emp_record.emp_id;
+        END IF;
+    END LOOP;
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('Employee statuses updated successfully.');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('An error occurred: ' || SQLERRM);
+        ROLLBACK; -- Rollback in case of an error
+END Update_Employee_Status;
+/
+===================================================================================================================
+
+CREATE OR REPLACE FUNCTION Update_Employee_Status_Function
+RETURN VARCHAR2
+IS
+    CURSOR emp_cursor IS SELECT emp_id, salary FROM employees;
+    v_emp_id   employees.emp_id%TYPE;
+    v_salary   employees.salary%TYPE;
+
+BEGIN
+    OPEN emp_cursor;
+    LOOP
+        FETCH emp_cursor INTO v_emp_id, v_salary;
+        EXIT WHEN emp_cursor%NOTFOUND;
+        IF v_salary > 100000 THEN
+            UPDATE employees SET status = 'Good' WHERE emp_id = v_emp_id;
+        ELSE
+            UPDATE employees SET status = 'Well' WHERE emp_id = v_emp_id;
+        END IF;
+    END LOOP;
+    CLOSE emp_cursor;
+    COMMIT;
+    RETURN 'Employee statuses updated successfully.';
+EXCEPTION
+    WHEN OTHERS THEN
+        IF emp_cursor%ISOPEN THEN
+            CLOSE emp_cursor;
+        END IF;
+        ROLLBACK; -- Rollback in case of an error
+        RETURN 'An error occurred: ' || SQLERRM;
+END Update_Employee_Status_Function;
+/
+
+===============================================================================================================
+directely we can not use commit in trigger.
+
+CREATE OR REPLACE TRIGGER Audit_Trigger
+AFTER INSERT ON employees
+DECLARE
+    PRAGMA AUTONOMOUS_TRANSACTION;
+BEGIN
+    INSERT INTO audit_log (message, log_date)
+    VALUES ('New employee added', SYSDATE);
+
+    -- Commit is allowed here because it is in an autonomous transaction
+    COMMIT;
+END;
+/
+=============================================
+PRINT THE STRING REVESE
+--------------------------
+
+DECLARE
+   name_to_reverse VARCHAR2(100) := 'Prasanth'; -- Replace with the name you want to reverse
+   reversed_name   VARCHAR2(100) := '';
+BEGIN
+   -- Loop through each character of the string in reverse order
+   FOR i IN REVERSE 1..LENGTH(name_to_reverse) LOOP
+      reversed_name := reversed_name || SUBSTR(name_to_reverse, i, 1);
+   END LOOP;
+
+   -- Print the reversed name
+   DBMS_OUTPUT.PUT_LINE('Original Name: ' || name_to_reverse);
+   DBMS_OUTPUT.PUT_LINE('Reversed Name: ' || reversed_name);
+END;
+/
+============================================================================================
+i need to print emp table ename column first p letter words then m letter words then print others
+----------------------------------------------------------------------------------
+
+declare
+cursor c1 is select ename from emp 
+where ename like 'p%' order by ename;
+
+cursor c2 is select ename from emp 
+where ename like 'm%' order by ename;
+
+cursor c3 is select ename from emp 
+where ename not like 'p%' and ename not like 'm' order by ename;
+
+vname emp.ename%type;
+
+begin
+for vname in c1 loop
+dbms_output.put_line(vname.ename);
+end loop;
+
+for vname in c2 loop
+dbms_output.put_line(vname.ename);
+end loop;
+
+for vname in c3 loop
+dbms_output.put_line(vname.ename);
+end loop;
+end;
+
+------------------------------------------------------------------------
+
+print the all employees name using associate array
+------------------------------------------------
+
+DECLARE
+   -- Declare an associative array type for employee names
+   TYPE emp_name_array IS TABLE OF VARCHAR2(100) INDEX BY PLS_INTEGER;
+   
+   -- Declare an associative array variable
+   emp_names emp_name_array;
+
+   -- Variable for the array index
+   idx PLS_INTEGER := 0;
+BEGIN
+   -- Populate the associative array with employee names from the emp table
+   FOR rec IN (SELECT empname FROM emp) LOOP
+      idx := idx + 1; -- Increment the index
+      emp_names(idx) := rec.empname; -- Store employee name in the array
+   END LOOP;
+
+   -- Print the employee names stored in the associative array
+   idx := emp_names.FIRST; -- Get the first index
+   WHILE idx IS NOT NULL LOOP
+      DBMS_OUTPUT.PUT_LINE('Employee Name: ' || emp_names(idx)); -- Print the name
+      idx := emp_names.NEXT(idx); -- Move to the next index
+   END LOOP;
+END;
+-------------------------------------------------------------------------------------------------
+
+DECLARE
+   TYPE emp_name_table IS TABLE OF VARCHAR2(100);
+    emp_names emp_name_table;
+BEGIN
+   SELECT empname
+   BULK COLLECT INTO emp_names
+   FROM emp;
+
+   FOR i IN 1 .. emp_names.COUNT LOOP
+      DBMS_OUTPUT.PUT_LINE('Employee Name: ' || emp_names(i));
+   END LOOP;
+END;
+---------------------------------------------------------------------------
+
+DECLARE
+   TYPE emp_name_varray IS VARRAY(100) OF VARCHAR2(100);
+      emp_names emp_name_varray;
+BEGIN
+   SELECT empname
+   BULK COLLECT INTO emp_names
+   FROM emp
+   WHERE ROWNUM <= 100; -- Ensure the number of rows fits in the VARRAY
+
+   FOR i IN 1 .. emp_names.COUNT LOOP
+      DBMS_OUTPUT.PUT_LINE('Employee Name: ' || emp_names(i));
+   END LOOP;
+END;
+------------------------------------------------
+DECLARE
+   TYPE emp_name_table IS TABLE OF VARCHAR2(100);
+   emp_names emp_name_table;
+
+   CURSOR emp_cursor IS
+      SELECT empname FROM emp;
+
+BEGIN
+   OPEN emp_cursor;
+   FETCH emp_cursor BULK COLLECT INTO emp_names;
+   CLOSE emp_cursor;
+
+   FOR i IN 1 .. emp_names.COUNT LOOP
+      DBMS_OUTPUT.PUT_LINE('Employee Name: ' || emp_names(i));
+   END LOOP;
+END;
+----------------------------------------------------------------
+DECLARE
+   CURSOR emp_cursor IS SELECT empname, salary FROM emp;
+   v_empname emp.empname%TYPE;
+   v_salary emp.salary%TYPE;
+BEGIN
+   OPEN emp_cursor;
+   LOOP
+      FETCH emp_cursor INTO v_empname, v_salary;
+      EXIT WHEN emp_cursor%NOTFOUND;
+      DBMS_OUTPUT.PUT_LINE('Employee Name: ' || v_empname || ', Salary: ' || v_salary);
+   END LOOP;
+   CLOSE emp_cursor;
+END;
+
+--------------------------------------------------------------------------------------------
+DECLARE
+   CURSOR emp_cursor IS SELECT empid, empname, salary, deptid FROM emp;
+   v_empid emp.empid%TYPE;
+   v_empname emp.empname%TYPE;
+   v_salary emp.salary%TYPE;
+   v_deptid emp.deptid%TYPE;
+   salary_threshold CONSTANT NUMBER := 30000;
+
+BEGIN
+   OPEN emp_cursor;
+   LOOP
+      FETCH emp_cursor INTO v_empid, v_empname, v_salary, v_deptid;
+      EXIT WHEN emp_cursor%NOTFOUND;
+      IF v_salary < salary_threshold THEN
+         DBMS_OUTPUT.PUT_LINE('Validation Failed: ' || v_empname || ' has a low salary (' || v_salary || ').');
+      ELSIF v_deptid IS NULL THEN
+         DBMS_OUTPUT.PUT_LINE('Validation Failed: ' || v_empname || ' has no department ID.');
+      ELSE
+         DBMS_OUTPUT.PUT_LINE('Validation Passed: ' || v_empname || ' is valid.');
+      END IF;
+   END LOOP;
+   CLOSE emp_cursor;
+END;
+
+-----------------------------------------------------------------------------------------
+
+CREATE OR REPLACE PROCEDURE cus_pro
+IS
+BEGIN
+  FOR rec IN (SELECT * FROM (SELECT * FROM customer ORDER BY customer_id) WHERE ROWNUM <= 5)
+  LOOP
+    IF rec.customer_id IS NULL THEN
+      RAISE_APPLICATION_ERROR(-20001, 'Customer ID is NULL');
+    ELSE
+      DBMS_OUTPUT.PUT_LINE('customer_id: ' || rec.customer_id || 
+                           ' name: ' || rec.name || 
+                           ' active: ' || rec.is_active);
+    END IF;
+  END LOOP;
+
+EXCEPTION
+  WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE('An error occurred: ' || SQLERRM);
+END;
+/
+-------------------------------------------------------------------------------------
+
+select owner, object_name, object_type, status from dba_objects where status = 'INVALID' order by owner, object_type, object_name;
+
+
+begin
+for obj in (select owner, object_name, object_type, status from dba_objects where status = 'INVALID')
+loop
+begin
+execute immediate 'alter || obj.object_type || ' " ' || obj.owner || '"."' || obj.object_name || '" compile';
+exception 
+when others then 
+dbms_output.put_line ('Failed to compile: ' || obj.object_type || ' ' || obj.owner || '.' || obj.object_name || '- Error' || sqlerrm);
+end;
+end loop;
+end;
+/
+===============================================================================
+create or replace procedure r_devision is
+m1 number := 100;
+m2 number := 0;
+m3 number;
+begin
+m3 := m1/nullif(m2, 0);
+dbms_output.put_line('result f m3: ' || nvl(m3, 'undefined (devision by zero)') );
+end;
+============================================================================
+Oracle SQL to split the Full Name column into First Name and Last Name, assuming names are separated by a space
+
+SELECT 
+    full_name,  
+    SUBSTR(full_name, 1, INSTR(full_name, ' ') - 1) AS first_name,  
+    SUBSTR(full_name, INSTR(full_name, ' ') + 1) AS last_name  
+FROM your_table;
+==================================================================================

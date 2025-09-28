@@ -1,0 +1,1907 @@
+SQL Trace and TKPROF
+====================
+SQL Trace and TKPROF are tools in Oracle that help with SQL performance tuning by analyzing how SQL statements execute and identifying bottlenecks. Here's a simple explanation of both:
+
+SQL Trace
+=========
+The SQL Trace facility collects detailed information about the execution of SQL statements. It provides raw data about:
+* SQL statements executed.
+* Execution time.
+* Parsing, execution, and fetching statistics.
+* Wait events.
+
+Steps to Enable SQL Trace
+Enable SQL Trace at the session or instance level.
+Generate a raw trace file.
+Use TKPROF to analyze the trace file.
+Enable SQL Trace for a Session
+
+-- Enable SQL Trace
+ALTER SESSION SET sql_trace = TRUE;
+
+-- Execute your SQL statements here
+
+-- Disable SQL Trace
+ALTER SESSION SET sql_trace = FALSE;
+Enable SQL Trace for a Specific User
+You can enable tracing for a user session using PL/SQL or commands:
+
+
+EXEC DBMS_SESSION.SET_SQL_TRACE(TRUE);
+2. TKPROF
+The TKPROF (Trace Kernel PROFiler) utility formats the raw trace file into a readable report. This report helps you understand:
+
+Execution times for SQL statements.
+Sorting operations.
+Parse, execute, and fetch statistics.
+Wait events and resource usage.
+
+Steps to Use TKPROF
+Locate the raw trace file (generated in the USER_DUMP_DEST directory).
+Run the TKPROF command to generate a formatted report.
+TKPROF Command Example
+bash
+tkprof tracefile.trc outputfile.txt EXPLAIN=user/password
+
+Options:
+EXPLAIN: Adds the execution plan of SQL statements.
+SORT: Sorts the output (e.g., by execution time or CPU usage).
+PRINT: Limits the number of SQL statements in the report.
+SQL Trace Output Example
+Raw trace files look like this:
+
+sql
+Copy
+Edit
+PARSING IN CURSOR #1
+SELECT * FROM employees WHERE department_id = :1;
+END OF STMT
+TKPROF Report Example
+Formatted TKPROF output looks like this:
+
+sql
+Copy
+Edit
+SQL ID: 9cftrhrc8d1hv
+SELECT * FROM employees WHERE department_id = :1;
+
+Call     Count      CPU Time (s)   Elapsed Time (s)   Disk Reads   Rows
+Parse       1       0.01           0.02               1            0
+Execute     1       0.00           0.01               0            0
+Fetch       5       0.03           0.05               3            10
+
+Benefits of Using SQL Trace and TKPROF
+=======================================
+Identify Slow SQL: Find queries that take too much time or resources.
+Execution Plans: Understand how Oracle executes SQL statements.
+Wait Events: Analyze events causing delays (e.g., I/O waits or contention).
+Optimize SQL: Use the insights to rewrite queries or add indexes.
+Use Case: Analyze a Query
+
+Enable tracing for a session:
+
+ALTER SESSION SET sql_trace = TRUE;
+Run the SQL statement:
+
+SELECT * FROM employees WHERE salary > 50000;
+Disable tracing:
+
+
+ALTER SESSION SET sql_trace = FALSE;
+Locate the trace file: Trace files are stored in the database’s trace directory (USER_DUMP_DEST).
+
+Format the trace using TKPROF:
+
+
+tkprof tracefile.trc outputfile.txt EXPLAIN=user/password
+Review the outputfile.txt for details about query performance.
+
+Important Notes
+Enable Carefully: Tracing can impact performance, so only enable it when necessary.
+Combine with EXPLAIN PLAN: Use execution plans to get a complete picture of query behavior.
+Use Filters: For large trace files, focus on specific statements using filters in TKPROF.
+
+=====================================================================================================================================================
+
+cursor cache 
+===============
+
+cursor cache refers to the shared SQL area in the library cache, part of the shared pool in the System Global Area (SGA). It is used to store information about SQL statements that have been executed. Proper use of the cursor cache can significantly improve database performance by reusing previously executed SQL statements.
+
+How Cursor Cache Works
+
+Soft Parsing:
+When a SQL statement is executed, Oracle checks if an identical statement already exists in the cursor cache.
+If found, Oracle reuses the existing cursor, avoiding the need to parse the statement again. This is known as soft parsing.
+Soft parsing saves CPU resources and improves query performance.
+
+Hard Parsing
+If no matching statement is found in the cursor cache, Oracle parses the SQL statement, creates a new execution plan, and stores it in the cache.
+Hard parsing consumes more resources, including CPU and memory.
+
+Benefits of Proper Cursor Cache Management
+---------------------------------------------
+Reduces hard parsing and improves query performance.
+Minimizes contention for shared resources.
+Optimizes memory usage in the shared pool.
+
+============================================================================================================================================
+
+how to solve deadlock
+======================
+A deadlock occurs in a database when two or more transactions block each other by holding resources the other transactions need. Resolving and preventing deadlocks is essential for maintaining the stability of your database systems.
+
+Use Diagnostic Tools:
+In Oracle: Use the V$LOCK and V$SESSION views to identify blocked sessions.
+
+Capture Deadlock Details: Find out which transactions, sessions, or queries are involved.
+
+Kill One of the Transactions
+Terminate the Transaction: Identify and kill one of the transactions involved in the deadlock to allow others to proceed.
+In Oracle:
+
+ALTER SYSTEM KILL SESSION 'sid,serial#';
+
+Prevent Deadlocks
+-------------------
+Follow a Consistent Resource Order
+-----------------------------------
+Ensure all transactions access resources (tables, rows, etc.) in the same order to avoid circular waits.
+Example: If transactions A and B both need to access tables T1 and T2, ensure they access them in the same sequence (e.g., T1 first, then T2).
+
+Avoid Long Transactions
+-----------------------
+Break long-running transactions into smaller, more manageable units.
+Commit frequently to release locks sooner.
+
+Use Indexes Efficiently
+---------------------------
+Ensure proper indexing on frequently accessed columns to minimize the locking of large sets of rows.
+Example: Use an index on a column being used in a WHERE clause to avoid full table scans.
+
+Reduce Lock Contention
+---------------------
+Use appropriate isolation levels to balance concurrency and consistency:
+READ COMMITTED: Reduces locking overhead but may allow some non-repeatable reads.
+SNAPSHOT ISOLATION: Prevents readers from blocking writers and vice versa.
+Avoid SERIALIZABLE unless necessary, as it holds locks for longer periods.
+
+Implement a Timeout
+--------------------
+Set a timeout for transactions waiting on locks to prevent indefinite waiting:
+
+ALTER SESSION SET DDL_LOCK_TIMEOUT = 30; -- Wait for 30 seconds
+
+Use Row-Level Locking
+----------------------
+Avoid table-level locks when row-level locks suffice. This minimizes contention between transactions.
+
+To solve and prevent deadlocks:
+--------------------------------
+-------------------------------
+
+Resolve by identifying and terminating one transaction.
+Prevent by:
+Following consistent resource ordering.
+Optimizing queries and using proper isolation levels.
+Avoiding long transactions and reducing lock contention.
+
+Basic Query to Get SID
+-------------------
+SELECT SID, SERIAL# 
+FROM V$SESSION 
+WHERE USERNAME = 'YOUR_USERNAME';
+
+Identify SID for a Specific Query
+---------------------------------
+---------------------------------
+If you know part of the SQL query being run, you can search for it in V$SESSION joined with V$SQL.
+
+SELECT S.SID, S.SERIAL#, S.USERNAME, Q.SQL_TEXT
+FROM V$SESSION S
+JOIN V$SQL Q ON S.SQL_ID = Q.SQL_ID
+WHERE Q.SQL_TEXT LIKE '%YOUR_QUERY_TEXT%';
+=========================================================================================================================================================
+To stop a continuously running query in Oracle SQL, you need to identify the session executing the query and terminate it. Follow these steps:
+
+Steps to Stop a Running Query
+1. Identify the Running Query
+You can check which query is running by querying V$SESSION and V$SQL views.
+
+SELECT s.SID, s.SERIAL#, q.SQL_TEXT, s.STATUS, s.USERNAME
+FROM V$SESSION s
+JOIN V$SQL q ON s.SQL_ID = q.SQL_ID
+WHERE s.STATUS = 'ACTIVE';
+
+SID: Session Identifier.
+SERIAL#: Serial number for uniquely identifying the session.
+SQL_TEXT: The SQL query being executed.
+STATUS: The session's current state (ACTIVE or INACTIVE).
+USERNAME: The user who initiated the session.
+
+2. Identify Your Query
+From the output, locate the query that is running continuously and note its SID and SERIAL#.
+
+3. Terminate the Query
+Use the following command to kill the session associated with the query:
+
+ALTER SYSTEM KILL SESSION 'SID,SERIAL#';
+Replace SID and SERIAL# with the values from the previous step.
+
+Example:
+
+ALTER SYSTEM KILL SESSION '101,2021';
+
+4. Forcefully Terminate (Optional)
+If the session doesn’t terminate immediately, you can add the IMMEDIATE keyword:
+
+
+ALTER SYSTEM KILL SESSION 'SID,SERIAL#' IMMEDIATE;
+Additional Queries for Troubleshooting
+Find Blocking Sessions
+If the query is blocked by another session:
+
+
+SELECT BLOCKING_SESSION, SID, SERIAL#, USERNAME
+FROM V$SESSION
+WHERE BLOCKING_SESSION IS NOT NULL;
+Find Long-Running Queries
+To locate queries running for an extended period:
+
+SELECT s.SID, s.SERIAL#, q.SQL_TEXT, s.LAST_CALL_ET
+FROM V$SESSION s
+JOIN V$SQL q ON s.SQL_ID = q.SQL_ID
+WHERE s.STATUS = 'ACTIVE'
+  AND s.LAST_CALL_ET > 60; -- Running for more than 60 seconds
+
+Best Practices to Avoid Continuous Queries
+Set Time Limits on Queries: Use the RESOURCE_MANAGER to enforce query execution time limits.
+Optimize Queries: Ensure queries are efficient to avoid long runtimes.
+Monitor Regularly: Use tools like AWR Reports, OEM (Oracle Enterprise Manager), or custom scripts to monitor long-running queries.
+
+===============================================================================================================================
+
+NOCOPY hint 
+===========
+The NOCOPY hint in PL/SQL helps improve performance when passing large data (like arrays, records, or big variables) into procedures or functions. Normally, PL/SQL makes a copy of the data to avoid accidental changes to the original value. But with NOCOPY, it skips copying and directly works on the original data.
+
+Why Use NOCOPY?
+It’s faster because it avoids copying large amounts of data.
+It’s useful for OUT or IN OUT parameters when you need to send back results from a procedure or function.
+
+If you add NOCOPY, it works directly on the original variable:
+
+sql
+Copy
+Edit
+CREATE OR REPLACE PROCEDURE increase_salary(p_salary IN OUT NOCOPY NUMBER) IS
+BEGIN
+    p_salary := p_salary * 1.1; -- Increase salary by 10%
+END;
+
+Now, the value of p_salary is updated directly, which makes it faster.
+
+When to Use NOCOPY?
+
+Use NOCOPY when passing large data like collections, big objects, or records to avoid slow copying.
+Be careful! If the procedure raises an error, the original variable might still get partially updated since no copy exists.
+==============================================================================================================================================
+
+scrollable cursor
+===================
+A scrollable cursor in Oracle is a type of cursor that allows you to fetch rows in a non-sequential manner. Unlike standard cursors that fetch rows sequentially, scrollable cursors enable navigation both forward and backward through the result set, as well as jumping to specific rows.
+
+Key Features:
+Random Row Access:
+
+Navigate to the first, last, next, previous, or a specific row in the result set.
+Non-Sequential Fetching:
+
+Provides flexibility for applications that require dynamic row access.
+Supported in PL/SQL:
+
+Introduced in Oracle 9i.
+Performance Consideration:
+
+Scrollable cursors require more memory as they store the entire result set in the client-side memory or temporary segments.
+Declaring a Scrollable Cursor
+
+Key FETCH Options
+When using scrollable cursors, you can fetch rows with different options:
+
+FIRST: Fetches the first row of the result set.
+LAST: Fetches the last row of the result set.
+NEXT: Fetches the next row relative to the current position.
+PRIOR: Fetches the previous row relative to the current position.
+ABSOLUTE n: Fetches the nth row from the start of the result set (1-based index).
+RELATIVE n: Fetches a row that is n rows away from the current position.
+
+                Scrollable Cursor vs Regular Cursor
+Feature	Regular Cursor	                  Scrollable Cursor
+Navigation	Sequential only	          Forward, backward, specific rows
+Memory Usage	Minimal	                  Higher (stores result set)
+Flexibility	Limited	                  High
+Performance	Faster for simple fetch	  Slower due to overhead
+Use Cases	Simple processing	  Complex data navigation
+
+Limitations of Scrollable Cursors
+
+Memory Intensive: Requires more memory to store the result set.
+Not Suitable for Large Datasets: Storing large results in memory can degrade performance.
+Complexity: Handling scrollable cursors might be complex for very large applications.
+
+
+DECLARE
+   CURSOR emp_cursor IS
+      SELECT employee_id, first_name, last_name FROM employees
+      ORDER BY employee_id SCROLL;
+   emp_record employees%ROWTYPE;
+BEGIN
+   -- Open the scrollable cursor
+   OPEN emp_cursor;
+
+   -- Move to the first row
+   FETCH FIRST FROM emp_cursor INTO emp_record;
+   DBMS_OUTPUT.PUT_LINE('First Row: ' || emp_record.first_name || ' ' || emp_record.last_name);
+
+   -- Move to the next row
+   FETCH NEXT FROM emp_cursor INTO emp_record;
+   DBMS_OUTPUT.PUT_LINE('Next Row: ' || emp_record.first_name || ' ' || emp_record.last_name);
+
+   -- Move to the last row
+   FETCH LAST FROM emp_cursor INTO emp_record;
+   DBMS_OUTPUT.PUT_LINE('Last Row: ' || emp_record.first_name || ' ' || emp_record.last_name);
+
+   -- Move to a specific row (e.g., 5th row)
+   FETCH ABSOLUTE 5 FROM emp_cursor INTO emp_record;
+   DBMS_OUTPUT.PUT_LINE('5th Row: ' || emp_record.first_name || ' ' || emp_record.last_name);
+
+   -- Move to the prior row
+   FETCH PRIOR FROM emp_cursor INTO emp_record;
+   DBMS_OUTPUT.PUT_LINE('Prior Row: ' || emp_record.first_name || ' ' || emp_record.last_name);
+
+   -- Close the cursor
+   CLOSE emp_cursor;
+END;
+
+===================================================================================================================================================
+
+DIRECT PATH hint(append)----------writes data directly into the data blocks
+================
+* DIRECT PATH hint is used to optimize the data loading process by enabling the direct path insert mechanism. 
+* This method bypasses the conventional insert mechanism and writes data directly into the data blocks
+* which improves performance by reducing the overhead of logging and undo generation.
+
+INSERT /*+ APPEND */ INTO table_name
+SELECT ...
+FROM source_table;
+
+Hint Usage:
+
+The APPEND hint enables direct path insert.
+It is applicable for INSERT INTO statements only.
+
+Direct Path Behavior:
+
+Data is written directly into the table’s data blocks, bypassing the buffer cache.
+Generates minimal redo and undo logs.
+Usually allocates new blocks above the high water mark (HWM).
+
+Prerequisites:
+
+The table should not be part of a cluster or an index-organized table (IOT).
+Sufficient space must be available in the tablespace.
+If constraints are enabled, they must allow efficient validation.
+
+Performance Benefits:
+
+Faster data loads for bulk insert operations.
+Reduced impact on database performance during the operation.
+
+Important Considerations:
+
+The table will be temporarily unavailable for queries until the insert operation completes.
+Indexes on the table are updated after the insert operation.
+Cannot be used in multi-tenant environments without PARALLEL mode.
+Example:
+
+INSERT /*+ APPEND */ INTO sales_archive
+SELECT * FROM sales_data WHERE sale_date < SYSDATE - 365;
+
+Parallelism:
+
+You can combine the APPEND hint with the PARALLEL hint for even better performance in large-scale data loading.
+
+INSERT /*+ APPEND PARALLEL (sales_archive, 4) */ INTO sales_archive
+SELECT * FROM sales_data WHERE sale_date < SYSDATE - 365;
+
+==========================================================================================
+If a cursor is updating 100 records in a table and another user tries to TRUNCATE the table at the same time, the behavior depends on how Oracle's transaction control and locking mechanisms work. Here's what happens
+
+Key Concepts
+TRUNCATE is a DDL Operation:
+
+TRUNCATE is a Data Definition Language (DDL) command, not a DML (DELETE, UPDATE) command.
+It immediately commits the transaction and cannot be rolled back.
+
+Locks:
+When a cursor updates rows, Oracle applies row-level locks on the rows being updated.
+TRUNCATE, however, requires a table-level lock to remove all rows in the table.
+
+Mutual Exclusion:
+TRUNCATE cannot proceed if the table is locked by another transaction (like the one updating rows using the cursor).
+Similarly, the update cannot proceed if a TRUNCATE has already started, as the table would be locked for the TRUNCATE operation.
+
+Cursor Updates Start First:
+===========================
+
+If the cursor begins updating 100 records, Oracle locks those rows for the duration of the transaction.
+When the second user tries to TRUNCATE the table, Oracle will block the TRUNCATE operation until the cursor’s transaction completes (either committed or rolled back).
+Once the cursor's updates are committed, the TRUNCATE operation can proceed, and all rows (including the updated ones) will be removed.
+Result: The updated rows will briefly exist in the table but will be deleted by the TRUNCATE.
+
+TRUNCATE Starts First:
+========================
+
+If the TRUNCATE command is executed before the cursor begins updating the rows, the TRUNCATE takes a table-level lock and removes all rows.
+The cursor’s update operation will fail because the table will no longer have the rows to update.
+Result: No rows will be updated, and the cursor’s transaction will raise an error.
+
+Why This Happens
+Oracle enforces table-level locks for TRUNCATE and row-level locks for DML operations like UPDATE.
+TRUNCATE is considered a higher-priority operation because it’s a DDL command and commits automatically.
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+key features of Oracle Database 19c 
+========================================
+
+Automatic Indexing: Uses machine learning to create, manage, and drop indexes automatically, optimizing query performance.
+
+Hybrid Partitioned Tables: Combines database-managed and external partitions for flexible data management.
+
+Automatic Query Rewrite: Enhances materialized view usage by rewriting queries automatically.
+
+JSON Enhancements: Adds efficient JSON data type storage and querying capabilities.
+
+Data Guard Enhancements: Introduces automatic failover for DML redirection, improving high availability.
+
+Real-Time Statistics: Collects statistics during DML operations for better query optimization without requiring separate stats gathering.
+
+SQL Quarantine: Identifies and prevents execution of problematic SQL statements that impact performance.
+
+Active Data Guard DML Redirection: Allows DML operations to be redirected from a standby database to the primary database seamlessly.
+
+In-Memory Optimizations: Supports in-memory processing enhancements, including optimizations for mixed workloads.
+
+Improved Multitenancy: Supports up to 3 user-created pluggable databases (PDBs) in the standard edition without additional licensing.
+
+
+oracle 21 c feautures in only 10 ponts short desc
+============================================================
+
+Native JSON Data Type: Improves performance and storage efficiency for JSON data with a dedicated data type.
+
+Blockchain Tables: Ensures immutable, tamper-proof data storage for secure record-keeping.
+
+SQL Macros: Simplifies query development with reusable query fragments and logic.
+
+In-Memory Enhancements: Optimized performance with vectorized joins and automatic data population.
+
+Sharding Enhancements: Advanced multi-shard query support and JSON sharding capabilities.
+
+Automatic Index Optimization: Monitors workloads to create, drop, and manage indexes automatically.
+
+JavaScript Stored Procedures: Allows the use of JavaScript for stored procedures alongside PL/SQL.
+
+Machine Learning Integration: Supports ONNX models for seamless integration of machine learning workflows.
+
+Persistent Memory (PMEM) Support: Provides ultra-fast data access with optimized PMEM usage.
+
+Gradual Password Rollover: Enables secure password updates with a transition phase for old and new credentials.
+ 
+
+create table zemp(empid number,ename varchar2(30),deptid number,salary number)
+====================================================================================
+
+System Change Number(SCN)
+=========================
+* It is a unique, ever-increasing number that Oracle uses to track changes and ensure database consistency and recoverability.
+* SCN is a unique, ever-increasing number that Oracle assigns to every committed transaction.
+* It acts as a timestamp to ensure the database maintains a consistent view of data.
+* SCN values are used to track changes, perform recovery, and manage synchronization in distributed systems.
+* SCN increases sequentially with every transaction.
+* SCNs are crucial for identifying the state of the database during crash recovery or point-in-time recovery.
+
+
+
+oracle architecture
+===================
+oracle database have two components
+1) instance-consistes of memory structures(pga,sga) and background processes.=memory
+2) database consistes of file (control file,redo file,data fils)=storage
+
+instance-two types
+memory structure,background processs.
+
+database consists various files 
+ main files = control files,redo files,data fies  
+ other files = password file, parameters file,archeived redo files,flashback files
+
+instance is memory, database is a storage.database is a set of files.
+
+memory structure(instance)
+SGA-system global area-shared memory
+it s main memory is databse instance 
+
+pga-process global area-private memory
+every background process have private memory
+each server process has  own pga.
+
+types of process
+client process-runs application or oracle tool code
+oracle process-runs oracle database code
+
+oracle process
+--server process
+--background process
+
+instance is memory structure and background process
+
+server process
+--it starts  when ever user start the database connection.
+--foreground process
+--performs based on client request.
+--if one client connect to oracle then start one server process started.
+--automatically created and closed when user login ,logout
+--more users are connected by the database more number of server process will be started.
+
+background process
+--each background process as a separate task
+--oracle database automatically creates background process automatically when a database instance is created.
+--perform maintenance tasks required to operate the database.
+
+oracle database storage structure
+--psysical storage structure
+--lagical storage structure
+
+psysical storage structure
+--data files,control files,redo log files
+--it can be view os level
+
+data files
+--many data files
+--size declared by dba
+--size based on data
+
+control files
+--do not store data
+--store controlling information about files.
+--like database name,db id ,information about= data files, archive files,check pint
+--size is small
+
+redo log files
+--description of changes made to the database.
+--any modification information
+--it helpful for recovery,backup
+--it help to re do the data again.
+
+logical storage structure
+--oracle db allocates space for all data in the db.
+--logical unites of db space allocation are data blocks,extends,segments,and tables space
+
+
+SGA-SYSTEM GLOPAL AREA
+======================
+The System Global Area (SGA) is a shared memory region that is allocated when an Oracle database instance starts and is used by all server and background processes. It plays a critical role in database operation by storing data and control information needed by the database instance.
+
+--shared memory
+--it contains data and control information for one oracle database instance.
+--each instance have own sga.
+--dba specifies the size sga.
+--it can ingress the size based on need.
+--caching data blocks read from database
+--storing sql execution plan.
+--maintain internal data structure that many processes and access concurrently
+--all server process and background process shre the sga.
+--meta data all saved hire
+--sga internally divided various components
+  *shared pool
+  *flashback buffer
+  *database buffer
+  *large pool
+  *redo log buffer
+  *shared i/o pool
+  *streams pool
+  *java pool
+  *fixed sga
+
+database buffer cache
+====================
+Purpose: Caches data blocks that are read from data files.
+Use: Improves performance by reducing physical I/O operations.
+Details:
+Stores frequently accessed blocks of data.
+Modified blocks (dirty buffers) are written to disk by the Database Writer (DBWn) process
+--stores copies of data blocks read from data
+--all users concurrently connected to a database instance shares access to the buffer cache.
+
+redo log buffer
+================
+--stores redo entries
+--ddl,dml- changes information
+--it help to re construct last data.
+--database recovery.
+Purpose: Temporarily stores redo entries (changes made to data) before writing them to the redo log files.
+Use: Ensures data recovery in case of a crash.
+Details:
+Written to disk by the Log Writer (LGWR) process.
+Typically small in size compared to other SGA components.
+
+
+shared pool
+=============
+--caches various types of program data like parsed sql,plsql code 
+--system parametres and data dictionary information.
+--stores the meta data(who having access the data)
+--all parsed sql,data distonary information stores . 
+--shared pool does not stores data it s stores the meta data only.
+Purpose: Caches information shared among users, such as SQL statements, PL/SQL code, and metadata.
+Components:
+Library Cache: Stores parsed SQL statements and execution plans.
+Data Dictionary Cache: Stores metadata about database objects (e.g., table definitions, user privileges).
+
+FIXED SGA
+--size is fixed dba can not change 
+--general information about the state the database and instance
+--information about locks
+
+Java pool
+---------
+ It is specifically used to store Java code and Java execution state when Java programs or Java-based applications run inside the Oracle Database.
+
+
+Large Pool
+===========
+Purpose: Provides memory for operations that require large allocations, such as:
+RMAN backups.
+Parallel query execution.
+Session memory in shared server environments.
+
+
+steams pool
+------------
+used specifically for Oracle Streams operations. Oracle Streams is a feature for sharing data and events across different databases in near real-time. It is often used for data replication, data warehousing, and event messaging.
+
+flashback pool
+-------------
+specifically used in the Flashback Database feature. It plays a critical role in enabling time-rewind capabilities for databases, allowing recovery to a previous state without requiring traditional point-in-time recovery.
+
+The Program Global Area (PGA) is a memory area in Oracle that is private to a server process. It is used to manage session-specific data and is not shared across processes. Unlike the System Global Area (SGA), which is shared memory, the PGA is allocated for each connected user session or background process.
+
+PGA
+===
+The Program Global Area (PGA) is a memory region in Oracle Database that is private to a server process. Unlike the System Global Area (SGA), which is shared across all processes, the PGA is dedicated to a single process and contains data and control information specific to that process. It plays a vital role in handling operations such as sorting, hashing, and managing session-specific data.
+
+--SESSION 
+--bind variable value
+--query execution state
+--parsed sql statement
+
+Private Memory Area
+Each Oracle server or background process has its own PGA.
+Managed by Oracle:
+The size and content of the PGA are automatically managed by Oracle when the server process is created and terminated.
+Contains:
+Session-specific data (e.g., sort area, hash join area).
+Control structures for processing SQL statements.
+PGA Components
+--------------
+The PGA contains the following types of data:
+
+1) Session Memory:
+Stores session-related data, such as session variables and cursor state.
+
+2) Private SQL Area:
+Holds SQL execution information, such as bind variables and runtime buffers.
+
+3) Sorting Area:
+Used for sorting rows and performing operations like joins and aggregations.
+
+4) Work Areas:
+--Allocated for memory-intensive operations such as:
+--Sort operations.
+--Hash joins.
+--Bitmap merges.
+--Parallel query execution.
+ 
+
+background process
+==================
+
+1. Mandatory Background Processes
+==========================================
+These are required for the database to function.
+
+Process	Name	                 Function
+DBWn	Database Writer 	Writes modified data blocks (dirty buffers) from the buffer cache to disk.
+LGWR	Log Writer	        Writes redo log entries from the redo log buffer to the online redo logs.
+CKPT	Checkpoint	        Updates datafile headers and control files to mark checkpoints.
+SMON	System Monitor	        Performs instance recovery after a crash and cleans up temporary segments.
+PMON	Process Monitor  	Cleans up failed user processes and releases resources.
+ARCn	Archiver	        Archives redo logs in ARCHIVELOG mode for recovery purposes.
+RECO	Recoverer	        Resolves distributed transaction failures.
+
+2. Optional/Additional Background Processes
+============================================
+These processes are enabled based on database configuration or features used.
+
+Process	Name	                    Function
+MMAN	Memory Manager	            Manages and tunes the database memory dynamically (SGA, PGA).
+MMON	Manageability Monitor	    Monitors database performance and writes statistics for Automatic Workload Repository (AWR).
+MMNL	Manageability Monitor Lite  Assists MMON by writing lightweight statistics to disk.
+RVWR	Recovery Writer	            Writes flashback logs to the Fast Recovery Area (FRA).
+QMNC	Queue Monitor Coordinator   Manages Oracle Advanced Queuing (AQ) processes.
+CJQ0	Job Queue Coordinator	    Manages scheduled jobs submitted by the DBMS_SCHEDULER package.
+DIAG	Diagnosability Process	    Manages diagnostic data collection for troubleshooting.
+
+==================================================================================================
+
+I run one select statement query what happened in background(like oracle architecture)?
+======================================================================================
+When you run a SELECT statement in Oracle SQL, the Oracle database architecture goes through a series of processes and components to execute the query. Here’s a simplified breakdown of what happens in the background:
+SQL Parsing
+Shared Pool Check
+Generating the Execution Plan(Optimizer)
+Executing the Query(SQL Execution)
+then checks Buffer Cache
+Returning Results (Fetching Data)
+Maintaining Consistency (Undo and Redo)
+
+1. Parsing the Query (SQL Parsing)
+SQL Parsing: The SQL statement goes to the SQL Parser, where it’s checked for syntax errors and semantics (like column and table names).
+Shared Pool Check: Oracle checks the Shared Pool to see if the exact SQL statement is already present. If it’s a “soft parse” (already in memory), Oracle can reuse the execution plan, saving processing time. If not, it proceeds to a "hard parse."
+
+2. Generating the Execution Plan (Optimizer)
+The Optimizer evaluates different ways of executing the query and picks the most efficient one based on statistics and available indexes, joins, and access paths.
+The chosen plan is stored in the Library Cache, a part of the Shared Pool, for potential reuse.
+
+3. Executing the Query (SQL Execution)
+The query plan is now executed. Oracle uses background processes, like the Server Process, to fetch the required data.
+Buffer Cache: Oracle checks the Database Buffer Cache (part of the SGA) to see if any blocks containing the requested data are already loaded into memory. If they are, the data is read from the cache (faster retrieval).
+If the data isn’t in the Buffer Cache, Oracle retrieves it from the data files on disk, and loads it into the cache for future use.
+
+4. Returning Results (Fetching Data)
+The Server Process transfers the fetched data back to the user, row by row.
+This data flow continues until the entire result set is returned to user.
+
+5. Maintaining Consistency (Undo and Redo)
+Oracle uses the Undo Tablespace to maintain read consistency if other sessions modify data while the query runs.
+Redo Logs capture all changes in case of system failure, even though a SELECT statement doesn’t usually modify data.
+
+Summary of Components Involved
+
+SGA (System Global Area): Stores the Shared Pool, Buffer Cache, and Library Cache.
+
+PGA (Program Global Area): Manages memory for the Server Process for each session.
+
+Background Processes: Handle tasks like data retrieval, logging, and cache management (e.g., DBWR, LGWR).
+
+============================================================================================================================================================
+
+
+create or replace function f1(id number)
+return number
+is 
+vsal number;
+begin
+select salary into vsal from zemp where empid=id;
+dbms_output.put_line(vsal);
+return vsal;
+exception 
+when no_data_found then
+dbms_output.put_line('no value');
+return null;
+end;
+
+select f1(191) from dual;
+
+create or replace procedure f3(id number)
+is 
+vsal number;
+begin
+select salary into vsal from zemp where empid=id;
+dbms_output.put_line(vsal);
+exception 
+when no_data_found then
+dbms_output.put_line('no value');
+end;
+
+1. What is a PL/SQL Function?
+A PL/SQL function is a named block that performs a specific task, usually to return a single value. It can take parameters as input and is often used when a calculation or specific value retrieval is needed.
+
+2. Differences between a Procedure and a Function
+Return Value: Functions must return a value, while procedures do not.
+Use in SQL Statements: Functions can be called within SQL queries, whereas procedures cannot.
+Calling Context: Functions are often used when a result is needed from a query or calculation. Procedures are better suited for performing an action (like updating records).
+
+3. Syntax of a Function
+
+CREATE OR REPLACE FUNCTION function_name (parameter_name datatype)
+RETURN return_datatype
+IS
+  -- Variable declarations
+BEGIN
+  -- Function body
+  -- RETURN value;
+END function_name;
+
+4. Example of a Simple Function
+Let’s say we want to create a function that calculates the bonus for an employee based on their salary and a specified bonus percentage.
+
+CREATE OR REPLACE FUNCTION calculate_bonus (
+    p_salary IN NUMBER,
+    p_bonus_percent IN NUMBER
+) RETURN NUMBER
+IS
+    v_bonus NUMBER;
+BEGIN
+    v_bonus := p_salary * (p_bonus_percent / 100);
+    RETURN v_bonus;
+END calculate_bonus;
+
+SELECT calculate_bonus(50000, 10) FROM dual;
+
+-- This will return 5000 as the bonus amount.
+
+5. Common Interview Questions on Functions
+How can you call a function in PL/SQL? Functions can be called in SQL statements  
+SELECT calculate_bonus(50000, 10) FROM dual;) or within other PL/SQL blocks (e.g., v_bonus := calculate_bonus(50000, 10);).
+
+What happens if a function does not contain a RETURN statement? It will raise an error at runtime, as every PL/SQL function must return a value.
+Yes, you are correct! In PL/SQL, a function must always return a value. If a function does not contain a RETURN statement, it will raise a compilation error during the creation or compilation of the function, not a runtime erro
+
+Can a function have OUT parameters? No, functions can only have IN parameters, meaning they accept values but cannot return values through parameters.
+
+How to handle exceptions in a function? You can use the EXCEPTION block in a function to handle errors gracefully. For example:
+
+CREATE OR REPLACE FUNCTION safe_divide (p_num1 NUMBER, p_num2 NUMBER)
+RETURN NUMBER
+IS
+    v_result NUMBER;
+BEGIN
+    v_result := p_num1 / p_num2;
+    RETURN v_result;
+EXCEPTION
+    WHEN ZERO_DIVIDE THEN
+        RETURN NULL; -- Or any default value
+END safe_divide;
+
+
+6. What are Deterministic and Non-Deterministic Functions?
+Deterministic Functions: A function is deterministic if it always returns the same result given the same input values. They can be optimized by the database, especially in SQL queries, to avoid recalculating the result.
+Example: A function that calculates the area of a circle based on a fixed radius is deterministic.
+Non-Deterministic Functions: These functions may return different results each time, even with the same inputs (e.g., functions that include SYSDATE or DBMS_RANDOM).
+Example Question: How would you create a deterministic function in PL/SQL, and why might you need it?
+
+CREATE OR REPLACE FUNCTION get_fixed_discount(p_amount NUMBER) 
+RETURN NUMBER DETERMINISTIC IS
+BEGIN
+    RETURN p_amount * 0.1; -- 10% discount
+END get_fixed_discount;
+
+2. What is Overloading in PL/SQL Functions?
+Overloading allows multiple functions with the same name but different parameter lists within the same package.
+Example Question: Can you explain function overloading in PL/SQL and provide an example?
+
+CREATE OR REPLACE PACKAGE math_operations IS
+    FUNCTION add(p_num1 NUMBER, p_num2 NUMBER) RETURN NUMBER;
+    FUNCTION add(p_num1 NUMBER, p_num2 NUMBER, p_num3 NUMBER) RETURN NUMBER;
+END math_operations;
+
+CREATE OR REPLACE PACKAGE BODY math_operations IS
+    FUNCTION add(p_num1 NUMBER, p_num2 NUMBER) RETURN NUMBER IS
+    BEGIN
+        RETURN p_num1 + p_num2;
+    END;
+    
+    FUNCTION add(p_num1 NUMBER, p_num2 NUMBER, p_num3 NUMBER) RETURN NUMBER IS
+    BEGIN
+        RETURN p_num1 + p_num2 + p_num3;
+    END;
+END math_operations;
+
+3. Explain the Purpose of a Pipelined Table Function and Provide an Example.
+Pipelined Table Functions: These functions allow rows to be returned one at a time, as they are generated. They are useful for performance when processing large datasets or for complex transformations.
+Example Question: What are the advantages of pipelined table functions, and how would you create one?
+
+CREATE OR REPLACE TYPE employee_record AS OBJECT (
+    emp_id NUMBER,
+    emp_name VARCHAR2(50)
+);
+
+CREATE OR REPLACE TYPE employee_table AS TABLE OF employee_record;
+
+CREATE OR REPLACE FUNCTION get_employees RETURN employee_table PIPELINED IS
+BEGIN
+    FOR emp IN (SELECT emp_id, emp_name FROM employees) LOOP
+        PIPE ROW(employee_record(emp.emp_id, emp.emp_name));
+    END LOOP;
+    RETURN;
+END get_employees;
+
+4. How Do You Use PRAGMA in PL/SQL Functions?
+PRAGMA directives are used to provide additional instructions to the PL/SQL compiler. Common pragmas include AUTONOMOUS_TRANSACTION and EXCEPTION_INIT.
+Example Question: What is PRAGMA AUTONOMOUS_TRANSACTION, and when would you use it in a function?
+Example:
+
+CREATE OR REPLACE FUNCTION log_error (p_error_message VARCHAR2) RETURN NUMBER IS
+    PRAGMA AUTONOMOUS_TRANSACTION;
+BEGIN
+    INSERT INTO error_log (error_message, error_date) VALUES (p_error_message, SYSDATE);
+    COMMIT;
+    RETURN 1;
+END log_error;
+
+This function logs errors without affecting the main transaction, because it runs in an independent transaction.
+
+
+PRAGMA AUTONOMOUS_TRANSACTION is a directive in PL/SQL that allows a procedure, function, or block to run independently as an autonomous transaction, meaning it can commit or roll back changes without affecting the main transaction. This can be useful in scenarios where you want to perform a database operation that is separate from the calling transaction, such as logging errors or audit information, regardless of whether the main transaction succeeds or fails.
+
+Use Cases:
+Error Logging
+Auditing
+Temporary Changes
+
+5. How Would You Optimize a Function to Improve Performance?
+Example Question: Describe strategies for optimizing PL/SQL functions in performance-critical applications.
+Key Optimization Techniques:
+Use Deterministic Functions: When possible, mark functions as deterministic to enable Oracle to cache the results.
+Reduce Context Switching: Minimize SQL queries inside loops or functions to reduce switching between the PL/SQL engine and SQL engine.
+Bulk Collection: Use bulk collections for large data processing (e.g., BULK COLLECT INTO for fetching data into collections).
+Use Pipelined Table Functions: For large datasets, use pipelined table functions to return rows progressively instead of all at once.
+
+6. Explain the Usage of RETURNING INTO Clause in a PL/SQL Function.
+Example Question: How would you use the RETURNING INTO clause in a function to return data after an INSERT/UPDATE/DELETE statement?
+
+CREATE OR REPLACE FUNCTION delete_employee (p_emp_id NUMBER) RETURN VARCHAR2 IS
+    v_emp_name VARCHAR2(50);
+BEGIN
+    DELETE FROM employees
+    WHERE emp_id = p_emp_id
+    RETURNING emp_name INTO v_emp_name;
+    RETURN v_emp_name;
+END delete_employee;
+-------------------------
+SELECT delete_employee(123) AS deleted_employee_name FROM dual;
+------------------------------------------
+SET SERVEROUTPUT ON;
+DECLARE
+    v_emp_name VARCHAR2(50);
+BEGIN
+    v_emp_name := delete_employee(123); -- Replace 123 with the actual emp_id
+    DBMS_OUTPUT.PUT_LINE('Deleted Employee Name: ' || v_emp_name);
+END;
+/
+
+The RETURNING INTO clause returns values from the deleted row, useful when you want to confirm or log the deleted data.
+-------------------------
+
+7. What is the Difference Between INSTEAD OF Triggers and Regular Functions?
+Example Question: Why would you use an INSTEAD OF trigger instead of a function in certain scenarios?
+INSTEAD OF triggers are used on views to allow DML operations (INSERT, UPDATE, DELETE) that are not natively supported by complex views. A regular function would not enable this functionality directly but could be called within the trigger if needed.
+
+=========================
+Write a Function to Count Vowels in a String
+Question: Create a function named count_vowels that takes a string as input and returns the number of vowels (A, E, I, O, U) in that string.
+
+CREATE OR REPLACE FUNCTION count_vowels (p_input_string VARCHAR2)
+RETURN NUMBER IS
+    v_count NUMBER := 0;
+BEGIN
+    FOR i IN 1 .. LENGTH(p_input_string) LOOP
+        IF INSTR('AEIOUaeiou', SUBSTR(p_input_string, i, 1)) > 0 THEN
+            v_count := v_count + 1;
+        END IF;
+    END LOOP;
+    RETURN v_count;
+END count_vowels;
+
+===================================================================================================
+collections
+==================================================================
+
+In PL/SQL, collections are data structures that allow you to store multiple elements of the same type, similar to arrays in other programming languages. They are particularly useful for working with large datasets in memory and are frequently used in bulk operations for improved performance. Here’s a breakdown of the three types of collections in PL/SQL: Associative Arrays, Nested Tables, and VARRAYs.
+
+1. Associative Arrays (Index-by Tables)
+Definition: Associative arrays are key-value pairs, where each element is associated with a unique key (index). The keys can be either integers or strings.
+
+Use Case: Useful for dynamic arrays where elements are accessed via custom keys.
+
+Declaration and Example:
+
+DECLARE
+    TYPE emp_array IS TABLE OF VARCHAR2(50) INDEX BY PLS_INTEGER;
+    v_emps emp_array;
+BEGIN
+    v_emps(1) := 'John';
+    v_emps(2) := 'Jane';
+    v_emps(3) := 'Alex';
+    
+    -- Accessing elements
+    DBMS_OUTPUT.PUT_LINE(v_emps(1)); -- Output: John
+END;
+------------------------
+DECLARE
+    TYPE emp_array IS TABLE OF VARCHAR2(50) INDEX BY PLS_INTEGER;
+    v_emps emp_array;
+BEGIN
+    -- Populating the associative array
+    v_emps(1) := 'John';
+    v_emps(2) := 'Jane';
+    v_emps(3) := 'Alex';
+    
+    -- Loop through each element and print it
+    FOR i IN v_emps.FIRST .. v_emps.LAST LOOP
+        DBMS_OUTPUT.PUT_LINE(v_emps(i));  -- Output each name
+    END LOOP;
+END;
+/
+
+-------------------------------------------
+
+Key Properties:
+No fixed size limit (can grow dynamically).
+Indexes don’t need to be consecutive, making it flexible.
+Ideal for use in scenarios where elements are sparsely populated.
+
+2)Nested Tables
+Definition: Nested tables are like database tables and can store an arbitrary number of elements. They can be stored in database tables as a column, allowing persistence.
+
+Use Case: Used for representing one-to-many relationships and storing query results.
+
+DECLARE
+    TYPE num_table IS TABLE OF NUMBER;
+    v_numbers num_table := num_table(1, 2, 3, 4, 5);
+BEGIN
+    FOR i IN 1 .. v_numbers.COUNT LOOP
+        DBMS_OUTPUT.PUT_LINE(v_numbers(i));
+    END LOOP;
+END;
+
+Key Properties:
+Can be sparse (elements can be deleted).
+Can be stored in database tables and queried like a regular table.
+Typically accessed via loops for processing.
+
+Unbounded: They can grow dynamically, unlike VARRAYs which have a fixed upper limit.
+Indexed: They use a sequential integer index, starting at 1.
+Can be Stored in Database Tables: Nested tables can be used as a column type in database tables.
+Dense and Sparse: They can contain gaps in the indexes (i.e., can be sparse) if elements are deleted.
+
+3. VARRAY (Variable-Size Array)
+Definition: VARRAYs are arrays with a fixed maximum size, where all elements are stored in a contiguous memory location.
+
+Use Case: Useful for when the number of elements is known and limited.
+
+Declaration and Example:
+
+
+DECLARE
+    TYPE num_varray IS VARRAY(5) OF NUMBER;
+    v_numbers num_varray := num_varray(10, 20, 30, 40, 50);
+BEGIN
+    FOR i IN 1 .. v_numbers.COUNT LOOP
+        DBMS_OUTPUT.PUT_LINE(v_numbers(i));
+    END LOOP;
+END;
+--------------------------------
+DECLARE
+    TYPE name_table IS TABLE OF VARCHAR2(50);
+    v_names name_table := name_table();  
+BEGIN
+    v_names.EXTEND(3); 
+    v_names(1) := 'John';
+    v_names(2) := 'Jane';
+    v_names(3) := 'Alex';
+
+    FOR i IN 1 .. v_names.COUNT 
+     LOOP
+        DBMS_OUTPUT.PUT_LINE(v_names(i));
+     END LOOP;
+END;
+/
+--------------------------------------------------------------
+
+DECLARE
+    -- Define a nested table type
+    TYPE number_table IS TABLE OF NUMBER;
+    v_numbers number_table := number_table();
+BEGIN
+    -- Extend the nested table and add some values
+    v_numbers.EXTEND(5);     -- Add 5 elements (with default NULL values)
+    v_numbers(1) := 100;     -- Assign values to some elements
+    v_numbers(2) := 200;
+    v_numbers(4) := 400;
+    v_numbers(5) := 500;
+
+    -- Loop to print all elements in the nested table, including NULL values
+    FOR i IN 1 .. v_numbers.LAST LOOP
+        IF v_numbers(i) IS NOT NULL THEN
+            DBMS_OUTPUT.PUT_LINE('Element ' || i || ': ' || v_numbers(i));
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('Element ' || i || ': NULL');
+        END IF;
+    END LOOP;
+END;
+/
+------------------------------------------------------------------------------
+DECLARE
+    TYPE emp_salary IS TABLE OF NUMBER INDEX BY PLS_INTEGER;
+    v_salaries emp_salary;
+    idx PLS_INTEGER;
+BEGIN
+    -- Populate only certain elements in the associative array
+    v_salaries(101) := 50000;
+    v_salaries(102) := 60000;
+    v_salaries(104) := 55000;  -- Notice that 103 is missing
+
+    -- Start with the first index and use NEXT to traverse the collection
+    idx := v_salaries.FIRST;
+    WHILE idx IS NOT NULL LOOP
+        DBMS_OUTPUT.PUT_LINE('Employee ID ' || idx || ': Salary = ' || v_salaries(idx));
+        idx := v_salaries.NEXT(idx);  -- Move to the next populated element
+    END LOOP;
+END;
+/
+----------------------------------------------------------------
+DECLARE
+    -- Define an associative array type
+    TYPE emp_salary IS TABLE OF NUMBER INDEX BY PLS_INTEGER;
+    v_salaries emp_salary;
+BEGIN
+    -- Populate only certain elements in the associative array
+    v_salaries(101) := 50000;
+    v_salaries(102) := 60000;
+    v_salaries(104) := 55000;  -- Notice that 103 is missing
+
+    -- Loop through the sparse associative array
+    FOR i IN v_salaries.FIRST .. v_salaries.LAST LOOP
+        IF v_salaries.EXISTS(i) THEN
+            DBMS_OUTPUT.PUT_LINE('Employee ID ' || i || ': Salary = ' || v_salaries(i));
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('Employee ID ' || i || ': No Data');
+        END IF;
+    END LOOP;
+END;
+/
+-----------------------------------------------------------
+DECLARE
+    -- Define a nested table type
+    TYPE number_table IS TABLE OF NUMBER;
+    v_numbers number_table := number_table();
+BEGIN
+    -- Extend the nested table and add some values
+    v_numbers.EXTEND(5);     -- Add 5 elements (with default NULL values)
+    v_numbers(1) := 100;     -- Assign values to some elements
+    v_numbers(2) := 200;
+    v_numbers(4) := 400;
+    v_numbers(5) := 500;
+
+    -- Delete an element to make the collection sparse
+    v_numbers.DELETE(2);     -- Delete the element at index 2
+
+    -- Print all elements that exist
+    FOR i IN v_numbers.FIRST .. v_numbers.LAST LOOP
+        IF v_numbers.EXISTS(i) THEN
+            DBMS_OUTPUT.PUT_LINE('Element ' || i || ': ' || v_numbers(i));
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('Element ' || i || ': NULL (sparse element)');
+        END IF;
+    END LOOP;
+END;
+/
+--------------------------------------------------
+DECLARE
+    -- Define a nested table type for employee names
+    TYPE emptype IS TABLE OF VARCHAR2(39);
+    vemp emptype := emptype();
+BEGIN
+    -- Select employee names from the EMPLOYEES table and populate the collection
+    SELECT ename
+    BULK COLLECT INTO vemp
+    FROM zemp;
+
+    -- Loop through the collection and print each employee name
+    FOR i IN vemp.FIRST .. vemp.LAST LOOP
+        IF vemp.EXISTS(i) THEN
+            DBMS_OUTPUT.PUT_LINE(vemp(i));
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('NULL value');
+        END IF;
+    END LOOP;
+END;
+/
+--------------------------------------------------------
+DECLARE
+                                                     -- Define a nested table type for employee names
+    TYPE emptype IS TABLE OF VARCHAR2(39);
+    vemp emptype := emptype();
+BEGIN
+                                                      -- Manually insert each employee name into the collection
+    FOR rec IN (SELECT ename FROM zemp) LOOP
+        vemp.EXTEND;                                  -- Extend the collection to add a new element
+        vemp(vemp.COUNT) := rec.ename;                  -- Add the employee name to the collection
+    END LOOP;
+
+                                                    -- Loop through the collection and print each employee name
+    FOR i IN 1 .. vemp.COUNT LOOP
+        DBMS_OUTPUT.PUT_LINE(vemp(i));
+    END LOOP;
+END;
+/
+---------------------------------------------
+DECLARE
+    -- Define a nested table type for employee names
+    TYPE emptype IS TABLE OF VARCHAR2(39);
+    vemp emptype := emptype();
+BEGIN
+    FOR rec IN (SELECT ename FROM zemp) LOOP
+                vemp.EXTEND;
+        vemp(vemp.COUNT) := rec.ename;
+    END LOOP;
+
+                                         -- Loop through the collection and print each employee name
+    FOR i IN 1 .. vemp.COUNT LOOP
+        DBMS_OUTPUT.PUT_LINE(vemp(i));
+    END LOOP;
+END;
+/
+
+------------------------------------------------------------------------------------
+Key Properties:
+
+Maximum size must be specified during declaration.
+Elements are stored sequentially, allowing efficient memory usage for small datasets.
+Cannot be sparse, so elements cannot be deleted individually (only resized).
+
+
+In PL/SQL, collections are data structures that allow you to store multiple elements of the same type, similar to arrays in other programming languages. They are particularly useful for working with large datasets in memory and are frequently used in bulk operations for improved performance. Here’s a breakdown of the three types of collections in PL/SQL: Associative Arrays, Nested Tables, and VARRAYs.
+
+1. Associative Arrays (Index-by Tables)
+Definition: Associative arrays are key-value pairs, where each element is associated with a unique key (index). The keys can be either integers or strings.
+
+Use Case: Useful for dynamic arrays where elements are accessed via custom keys.
+
+Declaration and Example:
+
+sql
+Copy code
+DECLARE
+    TYPE emp_array IS TABLE OF VARCHAR2(50) INDEX BY PLS_INTEGER;
+    v_emps emp_array;
+BEGIN
+    v_emps(1) := 'John';
+    v_emps(2) := 'Jane';
+    v_emps(3) := 'Alex';
+    
+    -- Accessing elements
+    DBMS_OUTPUT.PUT_LINE(v_emps(1)); -- Output: John
+END;
+Key Properties:
+
+No fixed size limit (can grow dynamically).
+Indexes don’t need to be consecutive, making it flexible.
+Ideal for use in scenarios where elements are sparsely populated.
+
+2. Nested Tables
+Definition: Nested tables are like database tables and can store an arbitrary number of elements. They can be stored in database tables as a column, allowing persistence.
+
+Use Case: Used for representing one-to-many relationships and storing query results.
+
+Declaration and Example:
+
+sql
+Copy code
+DECLARE
+    TYPE num_table IS TABLE OF NUMBER;
+    v_numbers num_table := num_table(1, 2, 3, 4, 5);
+BEGIN
+    FOR i IN 1 .. v_numbers.COUNT LOOP
+        DBMS_OUTPUT.PUT_LINE(v_numbers(i));
+    END LOOP;
+END;
+Key Properties:
+
+Can be sparse (elements can be deleted).
+Can be stored in database tables and queried like a regular table.
+Typically accessed via loops for processing.
+
+3)varry 
+
+In Oracle PL/SQL, VARRAY (Variable-size Array) is a collection type that allows you to store a fixed number of elements of the same data type. It's useful when you need an ordered collection with a maximum defined size, and it provides random access to elements within that fixed-size range.
+
+Key Features of VARRAYs
+Fixed Size: You define the maximum number of elements that the VARRAY can store when you create it.
+Indexed by Integer: Elements in a VARRAY are accessed by their integer index (1-based).
+Ordered Collection: Elements maintain their order of insertion.
+Stored as a Single Entity: VARRAYs are stored as a single object in tables and are easy to manage as a single column value.
+Limitations: Unlike nested tables, VARRAYs cannot be sparse (meaning no gaps between elements).
+
+DECLARE
+    TYPE num_varray IS VARRAY(5) OF NUMBER;
+    v_numbers num_varray := num_varray(10, 20, 30, 40, 50);
+BEGIN
+    FOR i IN 1 .. v_numbers.COUNT LOOP
+        DBMS_OUTPUT.PUT_LINE(v_numbers(i));
+    END LOOP;
+END;
+
+Key Properties:
+Maximum size must be specified during declaration.
+Elements are stored sequentially, allowing efficient memory usage for small datasets.
+Cannot be sparse, so elements cannot be deleted individually (only resized).
+
+Collection Methods
+All three collection types come with built-in methods:
+
+COUNT: Returns the number of elements in the collection.
+EXISTS(index): Checks if an element at a specific index exists.
+LIMIT: Returns the maximum size (for VARRAYs).
+FIRST and LAST: Returns the first and last indexes.
+EXTEND: Adds elements to the collection (applicable to nested tables and VARRAYs).
+DELETE: Deletes elements (sparse deletions are possible in nested tables).
+
+DECLARE
+    TYPE num_table IS TABLE OF NUMBER;
+    v_numbers num_table := num_table(10, 20, 30);
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('Count of elements: ' || v_numbers.COUNT);
+    -- Output: Count of elements: 3
+END;
+===========================
+
+Here are some examples demonstrating common collection methods in PL/SQL with code examples to illustrate how each method works.
+
+1. COUNT
+Description: Returns the number of elements in the collection.
+Applicable To: All collection types (Associative Arrays, Nested Tables, VARRAYs).
+
+DECLARE
+    TYPE num_table IS TABLE OF NUMBER;
+    v_numbers num_table := num_table(10, 20, 30, 40, 50);
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('Number of elements: ' || v_numbers.COUNT);
+END;
+
+
+2. EXISTS
+Description: Checks if an element exists at a given index. Returns TRUE if the element exists, FALSE otherwise.
+Applicable To: All collection types.
+
+DECLARE
+    TYPE num_table IS TABLE OF NUMBER;
+    v_numbers num_table := num_table(10, 20, 30, 40, 50);
+BEGIN
+    IF v_numbers.EXISTS(3) THEN
+        DBMS_OUTPUT.PUT_LINE('Element at index 3 exists: ' || v_numbers(3));
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('Element at index 3 does not exist.');
+    END IF;
+END;
+
+Output:
+Element at index 3 exists: 30
+
+3. LIMIT
+Description: Returns the maximum number of elements that a VARRAY can hold. Returns NULL for Associative Arrays and Nested Tables.
+Applicable To: VARRAYs only.
+
+DECLARE
+    TYPE num_varray IS VARRAY(5) OF NUMBER;
+    v_numbers num_varray := num_varray(10, 20);
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('Maximum size of VARRAY: ' || v_numbers.LIMIT);
+END;
+
+Output:
+Maximum size of VARRAY: 5
+
+4. FIRST and LAST
+Description: Returns the first and last index numbers in a collection. If the collection is empty, both return NULL.
+Applicable To: All collection types.
+Example:
+
+DECLARE
+    TYPE num_table IS TABLE OF NUMBER;
+    v_numbers num_table := num_table(10, 20, 30, 40, 50);
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('First index: ' || v_numbers.FIRST);
+    DBMS_OUTPUT.PUT_LINE('Last index: ' || v_numbers.LAST);
+END;
+
+Output:
+First index: 1
+Last index: 5
+
+5. EXTEND
+Description: Adds one or more elements to the end of a nested table or VARRAY. Takes an optional parameter to specify the number of elements to add.
+Applicable To: Nested Tables and VARRAYs.
+
+DECLARE
+    TYPE num_table IS TABLE OF NUMBER;
+    v_numbers num_table := num_table(10, 20, 30);
+BEGIN
+    v_numbers.EXTEND;  -- Adds one null element
+    v_numbers(4) := 40;
+    v_numbers.EXTEND(2);  -- Adds two more null elements
+
+    FOR i IN 1 .. v_numbers.COUNT LOOP
+        DBMS_OUTPUT.PUT_LINE('Element at index ' || i || ': ' || NVL(v_numbers(i), 'NULL'));
+    END LOOP;
+END;
+
+Output:
+
+Element at index 1: 10
+Element at index 2: 20
+Element at index 3: 30
+Element at index 4: 40
+Element at index 5: NULL
+Element at index 6: NULL
+
+6. DELETE
+Description: Removes elements from the collection. You can delete a specific element, a range of elements, or all elements.
+Applicable To: Nested Tables and Associative Arrays.
+
+DECLARE
+    TYPE num_table IS TABLE OF NUMBER;
+    v_numbers num_table := num_table(10, 20, 30, 40, 50);
+BEGIN
+    v_numbers.DELETE(2);       -- Deletes the element at index 2
+    v_numbers.DELETE(4, 5);    -- Deletes elements from index 4 to 5
+    v_numbers.DELETE;          -- Deletes all elements
+
+    FOR i IN 1 .. v_numbers.COUNT LOOP
+        DBMS_OUTPUT.PUT_LINE('Element at index ' || i || ': ' || NVL(v_numbers(i), 'NULL'));
+    END LOOP;
+END;
+
+Output:
+
+Element at index 1: 10
+Element at index 3: 30
+
+7. TRIM
+Description: Removes one or more elements from the end of a collection. It has an optional parameter to specify the number of elements to remove.
+Applicable To: Nested Tables and VARRAYs.
+
+DECLARE
+    TYPE num_table IS TABLE OF NUMBER;
+    v_numbers num_table := num_table(10, 20, 30, 40, 50);
+BEGIN
+    v_numbers.TRIM;           -- Removes the last element (index 5)
+    v_numbers.TRIM(2);        -- Removes the last two elements (indexes 3 and 4)
+
+    FOR i IN 1 .. v_numbers.COUNT LOOP
+        DBMS_OUTPUT.PUT_LINE('Element at index ' || i || ': ' || v_numbers(i));
+    END LOOP;
+END;
+
+Output:
+
+Element at index 1: 10
+Element at index 2: 20
+
+
+-----------------------------------------------------------------------
+1. NO_DATA_FOUND in Collections
+Explanation: This exception occurs when you try to access an element in an associative array (index-by table) or a nested table that doesn’t exist.
+When It Happens: Associative arrays in PL/SQL allow you to specify arbitrary indices, and nested tables can have sparse indices (non-continuous). If you try to access an index that doesn’t have a corresponding element, you’ll encounter NO_DATA_FOUND.
+
+DECLARE
+  TYPE number_table IS TABLE OF NUMBER INDEX BY PLS_INTEGER;
+  numbers number_table;
+BEGIN
+  numbers(1) := 100;
+  DBMS_OUTPUT.PUT_LINE(numbers(2)); -- Raises NO_DATA_FOUND as index 2 doesn't exist
+EXCEPTION
+  WHEN NO_DATA_FOUND THEN
+    DBMS_OUTPUT.PUT_LINE('No data found at the specified index.');
+END;
+
+Best Practice: Use conditional checks like EXISTS before accessing an associative array to ensure the index exists:
+
+IF numbers.EXISTS(2) THEN
+  DBMS_OUTPUT.PUT_LINE(numbers(2));
+ELSE
+  DBMS_OUTPUT.PUT_LINE('No data at index 2');
+END IF;
+
+2. SUBSCRIPT_BEYOND_COUNT-   (index that’s greater than the current collection size)
+Explanation: This error occurs when attempting to access an index that’s beyond the current count of elements in a nested table or VARRAY.
+When It Happens: It commonly happens in nested tables or VARRAYs when an index that’s greater than the current collection size is accessed.
+
+DECLARE
+  TYPE number_array IS TABLE OF NUMBER;
+  numbers number_array := number_array(10, 20, 30);
+BEGIN
+  DBMS_OUTPUT.PUT_LINE(numbers(4)); -- Raises SUBSCRIPT_BEYOND_COUNT
+EXCEPTION
+  WHEN SUBSCRIPT_BEYOND_COUNT THEN
+    DBMS_OUTPUT.PUT_LINE('Index exceeds the number of elements in the collection.');
+END;
+
+Best Practice: Use collection methods like COUNT to check the size of the collection before accessing an index.
+
+IF numbers.COUNT >= 4 THEN
+  DBMS_OUTPUT.PUT_LINE(numbers(4));
+ELSE
+  DBMS_OUTPUT.PUT_LINE('Not enough elements in the collection.');
+END IF;
+
+3. SUBSCRIPT_OUTSIDE_LIMIT
+Explanation: This exception is raised when accessing an index outside the allowable range of a VARRAY, such as a negative index or an index beyond the maximum size.
+When It Happens: It applies only to VARRAYs since they have a fixed maximum size.
+
+DECLARE
+  TYPE fixed_size_array IS VARRAY(5) OF NUMBER;
+  numbers fixed_size_array := fixed_size_array(1, 2, 3);
+BEGIN
+  DBMS_OUTPUT.PUT_LINE(numbers(6)); -- Raises SUBSCRIPT_OUTSIDE_LIMIT
+EXCEPTION
+  WHEN SUBSCRIPT_OUTSIDE_LIMIT THEN
+    DBMS_OUTPUT.PUT_LINE('Attempted to access an index outside the VARRAY limits.');
+END;
+
+Best Practice: Use conditional checks and know the maximum size of the VARRAY when performing index-based operations.
+
+4. VALUE_ERROR in Collections
+Explanation: This error occurs when trying to store a value that doesn’t match the declared data type or exceeds the allowed size within the collection.
+When It Happens: When you assign a value outside the defined range for elements in a collection, like storing a larger number than the specified precision or using a value that doesn’t match the type.
+
+DECLARE
+  TYPE decimal_array IS VARRAY(5) OF NUMBER(3, 2);
+  numbers decimal_array := decimal_array();
+BEGIN
+  numbers.EXTEND;
+  numbers(1) := 123.456; -- Raises VALUE_ERROR due to exceeding precision
+EXCEPTION
+  WHEN VALUE_ERROR THEN
+    DBMS_OUTPUT.PUT_LINE('Value exceeds allowed precision or scale in the collection.');
+END;
+
+Best Practice: Ensure that values assigned to the collection elements are within the specified range and data type, and consider using constraints if possible.
+
+5. COLLECTION_IS_NULL
+Explanation: This exception is raised when trying to perform operations on a null (uninitialized) collection.
+When It Happens: Collections must be initialized before use. If a collection variable is declared but not initialized (e.g., using a constructor or assignment), operations like EXTEND, DELETE, or accessing elements will raise COLLECTION_IS_NULL.
+
+DECLARE
+  TYPE number_table IS TABLE OF NUMBER;
+  numbers number_table; -- Not initialized
+BEGIN
+  numbers.EXTEND; -- Raises COLLECTION_IS_NULL
+EXCEPTION
+  WHEN COLLECTION_IS_NULL THEN
+    DBMS_OUTPUT.PUT_LINE('Collection has not been initialized.');
+END;
+
+Best Practice: Initialize collections right after declaration using a constructor or assignment.
+
+numbers := number_table(); -- Initializes the collection
+Additional Tips for Managing Collection Exceptions
+Initialize Collections: Always initialize collections to avoid null errors.
+Use Collection Methods:
+EXISTS: Checks if an index exists.
+COUNT: Returns the number of elements.
+FIRST and LAST: Return the lowest and highest indices in the collection, useful for loops and boundary checks.
+Exception Handling: Use EXCEPTION blocks to catch and handle exceptions gracefully, which allows you to provide user-friendly messages or alternative logic when exceptions occur.
+
+------------------------------------------------------------------------------------------------------------
+FORALL
+------------
+The FORALL statement in PL/SQL is used to improve performance by performing bulk DML (Data Manipulation Language) operations, like INSERT, UPDATE, or DELETE, on collections in a single context switch between PL/SQL and SQL. This significantly reduces the overhead that comes from switching between the SQL and PL/SQL engines, especially when working with large data sets.
+
+FORALL only supports INSERT, UPDATE, and DELETE statements, not SELECT.
+It’s designed for bulk-binding collections to SQL statements, allowing these statements to execute efficiently on many rows at once.
+The collection must be dense; otherwise, the code will raise an exception (use INDICES OF or VALUES OF if working with sparse collections).
+
+DECLARE
+   TYPE dept_tab IS TABLE OF NUMBER;-------------------------------------------dense collection
+   dept_numbers dept_tab := dept_tab(10, 20, 30, 40, 50);
+BEGIN
+   FORALL i IN 1 .. dept_numbers.COUNT
+      INSERT INTO departments (department_id)
+      VALUES (dept_numbers(i));
+   
+   COMMIT;
+END;
+----------------------------------------------------------------
+
+DECLARE
+   TYPE emp_id_tab IS TABLE OF NUMBER;
+   TYPE salary_tab IS TABLE OF NUMBER;
+   
+   emp_ids emp_id_tab := emp_id_tab(101, 102, 103, 104);
+   new_salaries salary_tab := salary_tab(5000, 5500, 6000, 6500);
+BEGIN
+   FORALL i IN 1 .. emp_ids.COUNT
+      UPDATE employees
+      SET salary = new_salaries(i)
+      WHERE employee_id = emp_ids(i);
+   
+   COMMIT;
+END;
+
+-----------------------------------------------------------
+Using FORALL with Sparse Collections: INDICES OF and VALUES OF
+When working with sparse collections (collections with gaps in the indices), you can use INDICES OF or VALUES OF clauses to handle non-continuous data.
+
+INDICES OF: Allows FORALL to work on only the indices that exist in the collection.
+VALUES OF: Operates on specific values in an index-by table collection.
+
+DECLARE
+   TYPE number_tab IS TABLE OF NUMBER INDEX BY PLS_INTEGER;
+   numbers number_tab;
+BEGIN
+   numbers(1) := 100;
+   numbers(3) := 300;  -- Note: index 2 is missing
+   
+   FORALL i IN INDICES OF numbers
+      INSERT INTO my_table (num_column)
+      VALUES (numbers(i));
+   
+   COMMIT;
+END;
+
+
+=================================
+SAVE EXCEPTIONS is an option used with the FORALL statement to handle errors during bulk DML operations without halting the entire execution. Instead of stopping when it encounters an error, SAVE EXCEPTIONS allows the FORALL statement to continue with the remaining elements. At the end, you can retrieve information about any exceptions that occurred using the SQL%BULK_EXCEPTIONS collection.
+
+This feature is particularly useful when you want to perform large updates or inserts and handle problematic rows individually, without losing all the progress on successfully processed rows.
+
+How SAVE EXCEPTIONS Works
+When you use SAVE EXCEPTIONS with FORALL, PL/SQL records each error and continues processing the remaining rows. After FORALL completes, you can check for any exceptions by examining the SQL%BULK_EXCEPTIONS attribute, which is an associative array of error details.
+
+SQL%BULK_EXCEPTIONS(i).ERROR_INDEX: The index of the collection element that caused the error.
+SQL%BULK_EXCEPTIONS(i).ERROR_CODE: The Oracle error code for the exception that occurred.
+SQL%BULK_EXCEPTIONS.COUNT provides the total number of errors encountered during the FORALL operation.
+
+Example of Using SAVE EXCEPTIONS
+In this example, assume we have a list of employee IDs and new salaries, and we want to update them in bulk. However, some IDs may not exist in the employees table, which will cause NO_DATA_FOUND errors. Using SAVE EXCEPTIONS, we can handle these errors gracefully.
+
+
+Explanation of the Example
+Collection Declaration: We declare two collections, emp_ids and new_salaries.
+
+FORALL with SAVE EXCEPTIONS: The FORALL statement performs a bulk update on the employees table.
+
+The SAVE EXCEPTIONS clause tells PL/SQL to continue processing even if errors occur.
+Exception Handling: If any errors occur, we catch them in the EXCEPTION block.
+
+Loop Through Errors: Inside the exception block, we use SQL%BULK_EXCEPTIONS to loop through each error, displaying the index and the error message for each.
+
+SQLERRM is used to get the full error message for each error code.
+Important Points about SAVE EXCEPTIONS
+Performance: Even with errors, FORALL ... SAVE EXCEPTIONS is still faster than processing rows individually because it reduces context-switching.
+Error Indexes: ERROR_INDEX gives the index in the collection where the error occurred, so you can identify the exact data item causing the issue.
+Multiple Errors: SAVE EXCEPTIONS allows capturing multiple errors in a single bulk operation.
+Using SAVE EXCEPTIONS makes bulk operations more resilient and provides a way to handle errors gracefully, ensuring that successful operations proceed without disruption.
+
+----------------------------------------------------------------------------
+declare
+type stu_type is table of student.first_name%type;
+stu_collect stu_type:=stu_type();
+begin
+stu_collect.extend(5);
+stu_collect(1):='ram';
+stu_collect(2):='ramesh';
+stu_collect(3):='kumar';
+stu_collect(4):='sam';
+stu_collect(5):='sundar';
+
+forall i in stu_collect.first..stu_collect.last
+insert into student(first_name)values(stu_collect(i));
+end;
+/
+-----------------------------------------------------
+
+DECLARE
+    TYPE numlist IS TABLE OF NUMBER;
+    emp_ids numlist := numlist(1, 2, 3, 4, 5);
+    error_count NUMBER := 0;
+    error_message VARCHAR2(4000);
+BEGIN
+    FORALL i IN emp_ids.FIRST .. emp_ids.LAST SAVE EXCEPTIONS
+        DELETE FROM employees WHERE employee_id = emp_ids(i);
+
+EXCEPTION
+    WHEN bulk_errors THEN
+        error_count := SQL%BULK_EXCEPTIONS.COUNT;
+        DBMS_OUTPUT.PUT_LINE('Total errors: ' || error_count);
+
+        FOR i IN 1 .. error_count LOOP
+            error_message := SQLERRM(-SQL%BULK_EXCEPTIONS(i).ERROR_CODE);
+            DBMS_OUTPUT.PUT_LINE('Error on index ' || SQL%BULK_EXCEPTIONS(i).ERROR_INDEX || ': ' || error_message);
+        END LOOP;
+END;
+
+-----------------------------------------
+
+
+declare
+type stu_type is table of student7.first_name%type;
+stu_collect stu_type:=stu_type();
+begin
+stu_collect.extend(5);
+stu_collect(1):='ram';
+stu_collect(2):='ramesh';
+stu_collect(3):='kumar';
+stu_collect(4):='';
+stu_collect(5):='sundar';
+
+forall i in stu_collect.first..stu_collect.last save exceptions
+insert into student7(first_name)values(stu_collect(i));
+
+exception when others then
+for i in 1..sql%bulk_exceptions.count 
+loop
+dbms_output.put_line('total number of error count '||sql%bulk_exceptions.count);
+dbms_output.put_line('error index position '||sql%bulk_exceptions(i).error_index);
+dbms_output.put_line('error code is '||sql%bulk_exceptions(i).error_code);
+dbms_output.put_line('error message is '||sqlerrm);
+dbms_output.put_line('error code is '||sqlerrm(-sql%bulk_exceptions(i).error_code));
+end loop;
+end;
+/
+
+========================================================================================================
+TRIGGER
+=====================================================================================
+
+In PL/SQL, a trigger is a stored procedure that automatically executes (or "fires") in response to certain events on a particular table, view, schema, or the entire database. Triggers are typically used to enforce business rules, maintain audit trails, automatically generate values, and perform complex validation.
+
+Automated Execution: Triggers are invoked automatically when a specified event occurs. You don't need to explicitly call them in your SQL statements.
+
+Event-Based: Triggers are tied to specific events like INSERT, UPDATE, or DELETE on a table or view.
+
+Row-Level or Statement-Level: Triggers can be executed once per row (row-level) or once per SQL statement (statement-level).
+
+Before or After: Triggers can be set to fire before or after an event, which determines whether the trigger executes before or after the operation (e.g., BEFORE INSERT, AFTER UPDATE).
+
+Optional Condition: You can define conditions (e.g., WHEN clause) in a trigger to control whether it should execute based on the circumstances of the operation.
+
+Types of Triggers
+PL/SQL triggers are classified based on:
+
+Timing: BEFORE or AFTER the triggering event.
+Event: Specific DML operations (INSERT, UPDATE, DELETE), DDL operations, or system events.
+Level: Row-level or statement-level triggers.
+Common Types:
+DML Triggers: Executed on DML events (e.g., INSERT, UPDATE, DELETE).
+DDL Triggers: Executed on DDL events (e.g., CREATE, ALTER, DROP).
+INSTEAD OF Triggers: Used for views, executed in place of DML on a view.
+System Triggers: Executed on system events (e.g., LOGON, LOGOFF).
+DML Trigger Syntax
+Here's a basic syntax for creating a DML trigger:
+
+1. Basic BEFORE INSERT Trigger
+This trigger automatically sets a default value for a created_at column before a new row is inserted.
+
+CREATE OR REPLACE TRIGGER set_created_at
+BEFORE INSERT ON employees
+FOR EACH ROW
+BEGIN
+    :NEW.created_at := SYSDATE;
+END;
+
+Explanation: :NEW is a reference to the new row being inserted. This trigger sets created_at to the current date and time (SYSDATE).
+
+2. AFTER UPDATE Trigger for Audit Logging
+This trigger logs any updates to the salary column of an employees table to an employee_salary_audit table.
+
+
+CREATE OR REPLACE TRIGGER log_salary_changes
+AFTER UPDATE ON employees
+FOR EACH ROW
+WHEN (OLD.salary IS DISTINCT FROM NEW.salary)
+BEGIN
+    INSERT INTO employee_salary_audit (emp_id, old_salary, new_salary, changed_on)
+    VALUES (:OLD.emp_id, :OLD.salary, :NEW.salary, SYSDATE);
+END;
+Explanation: :OLD and :NEW are references to the old and new values in the row. This trigger fires only if there’s a change in the salary value.
+
+3. BEFORE DELETE Trigger to Restrict Deletion
+This trigger prevents deletion of employees from the employees table if they are managers.
+
+
+CREATE OR REPLACE TRIGGER prevent_manager_deletion
+BEFORE DELETE ON employees
+FOR EACH ROW
+BEGIN
+    IF :OLD.job_title = 'Manager' THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Managers cannot be deleted.');
+    END IF;
+END;
+
+Explanation: The trigger checks if the job title of the employee being deleted is 'Manager' and raises an error if true, thus preventing deletion.
+
+4. AFTER INSERT OR UPDATE Trigger to Enforce Business Rule
+This trigger ensures that any inserted or updated salary is greater than a specified minimum amount.
+
+CREATE OR REPLACE TRIGGER check_minimum_salary
+AFTER INSERT OR UPDATE ON employees
+FOR EACH ROW
+BEGIN
+    IF :NEW.salary < 30000 THEN
+        RAISE_APPLICATION_ERROR(-20002, 'Salary must be at least 30000.');
+    END IF;
+END;
+Explanation: If the salary is less than 30000, an error is raised, enforcing a minimum salary rule.
+
+5. INSTEAD OF Trigger on a View
+This trigger allows INSERT operations on a view that joins multiple tables.
+
+Assume there’s a view employee_department_view created from employees and departments.
+
+CREATE OR REPLACE TRIGGER insert_employee_into_view
+INSTEAD OF INSERT ON employee_department_view
+FOR EACH ROW
+BEGIN
+    INSERT INTO employees (emp_id, name, department_id)
+    VALUES (:NEW.emp_id, :NEW.name, :NEW.department_id);
+END;
+Explanation: When an INSERT is attempted on employee_department_view, this trigger redirects the insert to the employees table.
+
+Trigger Scenarios and Applications
+
+Audit Trail: Triggers can be used to log changes in important data, such as modifications to employee details, customer records, or financial transactions.
+
+Enforcing Business Rules: Enforce constraints that may not be easily defined with standard database constraints, like complex checks across multiple columns or tables.
+
+Automatic Data Adjustment: Automatically fill certain fields or adjust values before they are stored in the database, such as setting default values for timestamps or calculating derived values.
+
+Cross-table Updates: Maintain data consistency by updating or inserting related records in other tables.
+Considerations When Using Triggers
+Performance: Triggers can impact performance if they perform heavy computations or operate on a large number of records in bulk operations.
+Debugging: Triggers can make debugging more complex, as they execute automatically and may introduce unexpected behavior.
+Transaction Control: Triggers cannot perform transaction control statements (like COMMIT, ROLLBACK).
+Mutating Table Error: Row-level triggers on the same table as the triggering DML statement can cause a "mutating table" error if they try to query or modify the table being changed. Workarounds involve using AFTER triggers with PRAGMA AUTONOMOUS_TRANSACTION or storing data in package variables.
+Example: Audit Trigger for All DML Operations on employees Table
+The following example creates an audit_employees table to store records of changes made to the employees table. It captures information on each INSERT, UPDATE, or DELETE action.
+
+-- Audit table
+CREATE TABLE audit_employees (
+    action_type VARCHAR2(10),
+    emp_id NUMBER,
+    name VARCHAR2(50),
+    salary NUMBER,
+    action_date DATE
+);
+
+-- Trigger to capture all DML changes
+
+CREATE OR REPLACE TRIGGER audit_employee_changes
+AFTER INSERT OR UPDATE OR DELETE ON employees
+FOR EACH ROW
+BEGIN
+    IF INSERTING THEN
+        INSERT INTO audit_employees (action_type, emp_id, name, salary, action_date)
+        VALUES ('INSERT', :NEW.emp_id, :NEW.name, :NEW.salary, SYSDATE);
+        
+    ELSIF UPDATING THEN
+        INSERT INTO audit_employees (action_type, emp_id, name, salary, action_date)
+        VALUES ('UPDATE', :OLD.emp_id, :OLD.name, :OLD.salary, SYSDATE);
+        
+    ELSIF DELETING THEN
+        INSERT INTO audit_employees (action_type, emp_id, name, salary, action_date)
+        VALUES ('DELETE', :OLD.emp_id, :OLD.name, :OLD.salary, SYSDATE);
+    END IF;
+END;
+
+
+The audit_employee_changes trigger fires after any DML action (INSERT, UPDA
+...
+
+[Message clipped]  View entire message

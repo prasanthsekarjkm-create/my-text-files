@@ -1,0 +1,26 @@
+
+print 20 to 30 record in various method like rownum,other method
+we have created four trigger on one table.i want 4 th trigger execute first.how to do this?
+write plsql code to error records kept in separate table remaining records are kept in actual table?
+diff rank dense rank
+write the one line code for delete constraint as well as table one column
+how to write dml in function other then pragma_autonomus_transaction
+print the string in reverse on plsql
+
+global index,local index
+partiotion default,automatic partition
+hard parse,soft parse
+nested loop
+how to run sql query backend process
+awr report how much time will taken generate new awr report
+
+what is no_index hint
+Difrence between function and table function and pipeline function
+import export
+scoraable cursor
+nocopy hint
+exception propagation
+
+
+
+
